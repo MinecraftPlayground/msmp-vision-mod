@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "template-server-mod",
+  "version": "${version}",
+  "name": "Template Server Mod",
+  "description": "A template server mod for Minecraft.",
+  "authors": [],
+  "contact": {},
+  "license": "LGPL-3.0-only",
+  "icon": "assets/template.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "dev.loat.template_server_mod.TemplateServerMod"
+    ]
+  },
+  "mixins": [
+    "template_server_mod.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "^${minecraft_version}"
+  },
+  "custom": {
+    "mc-publish": {
+      "modrinth": {
+        "project_id": "---",
+        "loaders": [
+          "fabric"
+        ]
+      }
+    }
+  }
+}
