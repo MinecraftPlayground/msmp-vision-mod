@@ -1,26 +1,28 @@
 {
   "schemaVersion": 1,
-  "id": "template-server-mod",
+  "id": "msmp-vision-mod",
   "version": "${version}",
-  "name": "Template Server Mod",
-  "description": "A template server mod for Minecraft.",
+  "name": "MSMP Vision",
+  "description": "Extends the Minecraft Server Management Protocol (MSMP) by providing additional functions for taking and rendering screenshots entirely on the server-side.",
   "authors": [],
   "contact": {},
   "license": "LGPL-3.0-only",
-  "icon": "assets/template.png",
+  "icon": "assets/icon.png",
   "environment": "server",
   "entrypoints": {
     "main": [
-      "dev.loat.template_server_mod.TemplateServerMod"
+      "dev.loat.msmp_vision.MSMPVision"
     ]
   },
   "mixins": [
-    "template_server_mod.mixins.json"
+    "msmp_vision.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",
-    "minecraft": "^${minecraft_version}"
+    "minecraft": "^${minecraft_version}",
+    "msmp-lib": "*",
+    "config-lib": "*"
   },
   "custom": {
     "mc-publish": {

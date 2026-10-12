@@ -1,3 +1,3 @@
-<img src="assets/template.png" width="64" align="right">
+<img src="assets/icon.png" width="64" align="right">
 
-# Template Server Mod 
+# MSMP Vision Mod 

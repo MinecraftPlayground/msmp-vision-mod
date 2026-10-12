@@ -1,14 +1,14 @@
-package dev.loat.template_server_mod;
+package dev.loat.msmp_vision;
 
-import dev.loat.template_server_mod.config.Config;
-import dev.loat.template_server_mod.logging.Logger;
+import dev.loat.msmp_vision.config.Config;
+import dev.loat.msmp_vision.logging.Logger;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 
 /**
- * This class represents the main entry point for the TemplateServerMod mod.
+ * This class represents the main entry point for the MSMPVision mod.
  */
-public class TemplateServerMod implements ModInitializer {
+public class MSMPVision implements ModInitializer {
 
     /**
      * Called by Fabric during mod initialization, before the server starts.
