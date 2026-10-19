@@ -4,6 +4,7 @@ import dev.loat.config_lib.annotation.Annotation;
 
 
 public class DefaultsConfig {
+
     @Annotation.Comment("Output width in pixels.")
     public int width = 256;
 
@@ -14,11 +15,13 @@ public class DefaultsConfig {
     public double fov = 70.0;
 
     @Annotation.Comment("Render distance in blocks.")
+    @Annotation.Key("render-distance")
     public int renderDistance = 64;
 
     @Annotation.Comment("Supersampling factor (1 = off).")
     public int ssaa = 1;
 
     @Annotation.Comment("Biome tint blend radius in blocks (0 = off).")
+    @Annotation.Key("biome-blend")
     public int biomeBlend = 1;
 }

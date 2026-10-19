@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "msmp-vision-mod",
+  "id": "msmp-vision",
   "version": "${version}",
   "name": "MSMP Vision",
   "description": "Extends the Minecraft Server Management Protocol (MSMP) by providing additional functions for taking and rendering screenshots entirely on the server-side.",
@@ -20,9 +20,7 @@
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",
-    "minecraft": "^${minecraft_version}",
-    "msmp-lib": "*",
-    "config-lib": "*"
+    "minecraft": "^${minecraft_version}"
   },
   "custom": {
     "mc-publish": {

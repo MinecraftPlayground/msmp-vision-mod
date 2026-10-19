@@ -1,0 +1,94 @@
+name: 'New Method/Parameter Suggestion'
+description: Suggest a new MSMP RPC method, a new request parameter or a rendering feature.
+title: '[Suggestion] '
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest an improvement!
+
+        Please follow the existing naming and structure conventions where possible, ex.:
+        - `vision:foo` - the method, called by the client
+        - vectors are arrays like in Minecraft: `"position": [x, y, z]`, `"rotation": [yaw, pitch]`
+        - parameter names are `snake_case`, config keys are `kebab-case`
+
+        You don't need to fill out every field perfectly - just give us as much detail as you can.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 'What are you suggesting?'
+      options:
+        - 'New method (request/response)'
+        - 'New parameter for an existing method'
+        - 'Rendering feature (ex. entities, better lighting)'
+        - 'Not sure/something else'
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 'Use Case'
+      description: |
+        Why do you want this? What tooling, dashboard, or automation would this enable?
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 'What should it do?'
+      description: |
+        Describe the functionality in detail. What data does it accept or return?
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: example-payload
+    attributes:
+      label: 'Example request payload'
+      render: json
+      description: |
+        If you have an idea of the JSON shape, share it here. Not required, but it helps a lot.
+
+      placeholder: |
+        {
+          "jsonrpc": "2.0",
+          "method": "vision:foo",
+          "params": [{
+            "position": [0.5, 80.0, 0.5],
+            "rotation": [90.0, 0.0]
+          }],
+          "id": 1
+        }
+
+    validations:
+      required: false
+
+  - type: dropdown
+    id: needs-config
+    attributes:
+      label: 'Would this need configurable settings?'
+      options:
+        - 'No, it should just work without configuration'
+        - 'Yes, it would need some configurable settings (defaults/limits)'
+        - 'Not sure'
+
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 'Checks'
+      options:
+        - label: "I searched existing issues and this hasn't been suggested yet"
+          required: true
+
+        - label: 'This is a request for this mod specifically (not Minecraft itself or another mod)'
+          required: false

@@ -1,69 +1,89 @@
 package dev.loat.msmp_vision.msmp.endpoints.screenshot;
 
-import java.util.List;
-
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-
 import net.minecraft.server.jsonrpc.api.Schema;
 
+import java.util.List;
+import java.util.Optional;
+
+
 /**
- * Parameters of the {@code msmp_vision:screenshot} method.
+ * Request payload for the {@code vision:screenshot} method.
  *
- * <p>Optional numeric fields use a sentinel value meaning "use the configured default":
- * {@code 0} for {@code width}, {@code height}, {@code fov}, {@code render_distance}, {@code ssaa}
- * and {@code -1} for {@code biome_blend}.</p>
+ * <p>Only {@code position} is required. Every omitted optional field falls back to the
+ * value from the {@code defaults} section of the config. Vectors are transferred as arrays,
+ * exactly like in the {@code entity} namespace.</p>
  *
- * @param dimension Dimension id, e.g. {@code minecraft:overworld}.
- * @param position The target position as {@code [x, y, z]}
- * @param yaw Yaw in degrees (Minecraft convention, 0 = south, 90 = west).
- * @param pitch Pitch in degrees (positive = looking down).
- * @param width Output width in pixels, {@code 0} for default.
- * @param height Output height in pixels, {@code 0} for default.
- * @param fov Vertical field of view in degrees, {@code 0} for default.
- * @param renderDistance Render distance in blocks, {@code 0} for default.
- * @param ssaa Supersampling factor, {@code 0} for default.
- * @param biomeBlend Biome tint blend radius, {@code -1} for default.
+ * <p>Example JSON representations:</p>
+ * <pre><code>
+ * // Minimal
+ * { "position": [128.5, 80.0, -32.3] }
+ *
+ * // Everything set
+ * {
+ *   "dimension": "minecraft:overworld",
+ *   "position": [128.5, 80.0, -32.3],
+ *   "rotation": [90.0, 0.0],
+ *   "width": 512,
+ *   "height": 288,
+ *   "fov": 70.0,
+ *   "render_distance": 64,
+ *   "ssaa": 2,
+ *   "biome_blend": 1
+ * }
+ * </code></pre>
+ *
+ * @param dimension The dimension resource key, if provided (default: {@code minecraft:overworld})
+ * @param position The camera position as {@code [x, y, z]}
+ * @param rotation The camera rotation as {@code [yaw, pitch]}, if provided (Minecraft convention: yaw 0 = south, pitch positive = down; default: {@code [0, 0]})
+ * @param width The output width in pixels, if provided
+ * @param height The output height in pixels, if provided
+ * @param fov The vertical field of view in degrees, if provided
+ * @param renderDistance The render distance in blocks, if provided
+ * @param ssaa The supersampling factor (1 = off), if provided
+ * @param biomeBlend The biome tint blend radius in blocks (0 = off), if provided
  */
 public record ScreenshotRequest(
-    String dimension,
+    Optional<String> dimension,
     List<Double> position,
-    float yaw,
-    float pitch,
-    int width,
-    int height,
-    double fov,
-    int renderDistance,
-    int ssaa,
-    int biomeBlend
+    Optional<List<Double>> rotation,
+    Optional<Integer> width,
+    Optional<Integer> height,
+    Optional<Double> fov,
+    Optional<Integer> renderDistance,
+    Optional<Integer> ssaa,
+    Optional<Integer> biomeBlend
 ) {
- 
-    /** Default dimension used when the request omits one. */
-    public static final String DEFAULT_DIMENSION = "minecraft:overworld";
 
     private static final Schema<List<Double>> POSITION_SCHEMA =
         Schema.ofType("array", Codec.DOUBLE.listOf());
- 
-    /** Codec used for (de)serialization. */
-    public static final Codec<ScreenshotRequest> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codec.STRING.optionalFieldOf("dimension", DEFAULT_DIMENSION).forGetter(ScreenshotRequest::dimension),
+
+    private static final Schema<List<Double>> ROTATION_SCHEMA =
+        Schema.ofType("array", Codec.DOUBLE.listOf());
+
+    /**
+     * Codec for serializing and deserializing {@link ScreenshotRequest} instances.
+     */
+    public static final Codec<ScreenshotRequest> CODEC = RecordCodecBuilder.create(i -> i.group(
+        Codec.STRING.optionalFieldOf("dimension").forGetter(ScreenshotRequest::dimension),
         Codec.DOUBLE.listOf().fieldOf("position").forGetter(ScreenshotRequest::position),
-        Codec.FLOAT.optionalFieldOf("yaw", 0f).forGetter(ScreenshotRequest::yaw),
-        Codec.FLOAT.optionalFieldOf("pitch", 0f).forGetter(ScreenshotRequest::pitch),
-        Codec.INT.optionalFieldOf("width", 0).forGetter(ScreenshotRequest::width),
-        Codec.INT.optionalFieldOf("height", 0).forGetter(ScreenshotRequest::height),
-        Codec.DOUBLE.optionalFieldOf("fov", 0.0).forGetter(ScreenshotRequest::fov),
-        Codec.INT.optionalFieldOf("render_distance", 0).forGetter(ScreenshotRequest::renderDistance),
-        Codec.INT.optionalFieldOf("ssaa", 0).forGetter(ScreenshotRequest::ssaa),
-        Codec.INT.optionalFieldOf("biome_blend", -1).forGetter(ScreenshotRequest::biomeBlend)
-    ).apply(instance, ScreenshotRequest::new));
- 
-    /** MSMP discovery schema. */
+        Codec.DOUBLE.listOf().optionalFieldOf("rotation").forGetter(ScreenshotRequest::rotation),
+        Codec.INT.optionalFieldOf("width").forGetter(ScreenshotRequest::width),
+        Codec.INT.optionalFieldOf("height").forGetter(ScreenshotRequest::height),
+        Codec.DOUBLE.optionalFieldOf("fov").forGetter(ScreenshotRequest::fov),
+        Codec.INT.optionalFieldOf("render_distance").forGetter(ScreenshotRequest::renderDistance),
+        Codec.INT.optionalFieldOf("ssaa").forGetter(ScreenshotRequest::ssaa),
+        Codec.INT.optionalFieldOf("biome_blend").forGetter(ScreenshotRequest::biomeBlend)
+    ).apply(i, ScreenshotRequest::new));
+
+    /**
+     * MSMP schema for {@link ScreenshotRequest}, used for protocol discovery.
+     */
     public static final Schema<ScreenshotRequest> SCHEMA = Schema.record(CODEC)
         .withField("dimension", Schema.STRING_SCHEMA)
         .withField("position", POSITION_SCHEMA)
-        .withField("yaw", Schema.NUMBER_SCHEMA)
-        .withField("pitch", Schema.NUMBER_SCHEMA)
+        .withField("rotation", ROTATION_SCHEMA)
         .withField("width", Schema.INT_SCHEMA)
         .withField("height", Schema.INT_SCHEMA)
         .withField("fov", Schema.NUMBER_SCHEMA)

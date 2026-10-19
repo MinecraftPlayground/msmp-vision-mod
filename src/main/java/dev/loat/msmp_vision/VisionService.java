@@ -9,6 +9,7 @@ import dev.loat.msmp_vision.logging.Logger;
 import dev.loat.msmp_vision.mesh.TintResolver;
 import dev.loat.msmp_vision.msmp.endpoints.screenshot.ScreenshotRequest;
 import dev.loat.msmp_vision.msmp.endpoints.screenshot.ScreenshotResponse;
+import dev.loat.msmp_vision.msmp.exceptions.UnknownDimensionException;
 import dev.loat.msmp_vision.render.Camera;
 import dev.loat.msmp_vision.render.RenderExecutor;
 import dev.loat.msmp_vision.render.RenderSettings;
@@ -25,6 +26,7 @@ import net.minecraft.world.level.Level;
 
 import java.awt.image.BufferedImage;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -81,7 +83,8 @@ public final class VisionService {
      * @param server The server.
      * @param request The request.
      * @return The response containing a Base64 PNG.
-     * @throws IllegalArgumentException for invalid parameters.
+     * @throws dev.loat.msmp_vision.msmp.exceptions.InvalidParamsException for invalid parameters.
+     * @throws UnknownDimensionException if the requested dimension does not exist.
      * @throws IllegalStateException if the renderer is not ready or rendering failed.
      */
     public ScreenshotResponse screenshot(MinecraftServer server, ScreenshotRequest request) {
@@ -127,14 +130,17 @@ public final class VisionService {
         }
     }
 
-    private ServerLevel resolveLevel(MinecraftServer server, String dimension) {
-        if (dimension == null || dimension.isBlank()) {
+    private ServerLevel resolveLevel(MinecraftServer server, Optional<String> dimension) {
+        if (dimension.isEmpty()) {
             return server.overworld();
         }
-        ResourceKey<Level> key = ResourceKey.create(Registries.DIMENSION, Identifier.parse(dimension));
-        ServerLevel level = server.getLevel(key);
+        Identifier identifier = Identifier.tryParse(dimension.get());
+        if (identifier == null) {
+            throw new UnknownDimensionException(dimension.get());
+        }
+        ServerLevel level = server.getLevel(ResourceKey.<Level>create(Registries.DIMENSION, identifier));
         if (level == null) {
-            throw new IllegalArgumentException("Unknown dimension: " + dimension);
+            throw new UnknownDimensionException(dimension.get());
         }
         return level;
     }
