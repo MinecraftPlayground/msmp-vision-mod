@@ -1,5 +1,6 @@
 package dev.loat.msmp_vision.world;
 
+import dev.loat.msmp_vision.logging.Logger;
 import dev.loat.msmp_vision.render.Camera;
 import dev.loat.msmp_vision.render.RenderSettings;
 import net.minecraft.core.SectionPos;
@@ -12,12 +13,15 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.lighting.LevelLightEngine;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Vector3f;
+import org.joml.Vector3fc;
 
 /**
  * Copies the chunk sections around the camera into a {@link WorldSnapshot}. Must run on the server thread.
  */
 public final class SnapshotCapture {
+
+    private static final int FALLBACK_FOG = 0xC0D8FF;
+    private static final int FALLBACK_SKY = 0x78A7FF;
 
     private SnapshotCapture() {}
 
@@ -31,11 +35,22 @@ public final class SnapshotCapture {
      */
     public static WorldSnapshot capture(ServerLevel level, Camera camera, RenderSettings settings) {
         Vec3 position = new Vec3(settings.position().get(0), settings.position().get(1), settings.position().get(2));
-        Vector3f fog = new Vector3f(level.environmentAttributes().getValue(EnvironmentAttributes.FOG_COLOR, position)).mul(255.0f);
+
+        Object rawFog = level.environmentAttributes().getValue(EnvironmentAttributes.FOG_COLOR, position);
+        Object rawSky = level.environmentAttributes().getValue(EnvironmentAttributes.SKY_COLOR, position);
+        int fogColor = toRgb(rawFog, FALLBACK_FOG);
+        int skyColor = toRgb(rawSky, FALLBACK_SKY);
+        // TODO remove once the sky colours are confirmed to be correct
+        Logger.info("[diagnostic] fog raw=%s (%s) -> #%06X, sky raw=%s (%s) -> #%06X".formatted(
+            rawFog, rawFog == null ? null : rawFog.getClass().getName(), fogColor,
+            rawSky, rawSky == null ? null : rawSky.getClass().getName(), skyColor
+        ));
+
         EnvironmentSnapshot environment = new EnvironmentSnapshot(
             level.environmentAttributes().getValue(EnvironmentAttributes.SUN_ANGLE, position) * Mth.DEG_TO_RAD,
             level.environmentAttributes().getValue(EnvironmentAttributes.SKY_LIGHT_FACTOR, position),
-            (int) fog.x << 16 | (int) fog.y << 8 | (int) fog.z,
+            fogColor,
+            skyColor,
             level.dimensionType().hasSkyLight()
         );
         WorldSnapshot snapshot = new WorldSnapshot(environment);
@@ -73,6 +88,25 @@ public final class SnapshotCapture {
             }
         }
         return snapshot;
+    }
+
+    /**
+     * Converts an environment attribute colour to {@code 0xRRGGBB}. Accepts RGB vectors (components 0..1)
+     * as well as packed integer colours (alpha is ignored) and clamps everything so nothing can overflow
+     * into a neighbouring channel.
+     */
+    private static int toRgb(Object raw, int fallback) {
+        if (raw instanceof Vector3fc vector) {
+            return (channel(vector.x()) << 16) | (channel(vector.y()) << 8) | channel(vector.z());
+        }
+        if (raw instanceof Integer packed) {
+            return packed & 0xFFFFFF;
+        }
+        return fallback;
+    }
+
+    private static int channel(float unit) {
+        return Mth.clamp((int) (unit * 255.0f + 0.5f), 0, 255);
     }
 
     private static boolean isRelevant(Camera camera, RenderSettings settings, double radius, int cx, int sy, int cz) {
