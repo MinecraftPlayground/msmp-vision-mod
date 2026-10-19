@@ -18,7 +18,8 @@ public class MSMPVision implements ModInitializer {
      * The shared {@code vision} namespace used for all MSMP registrations.
      * Attached to the running server in {@code SERVER_STARTED} and detached in {@code SERVER_STOPPED}.
      */
-    private static final MSMPNamespace NS = new MSMPNamespace("vision");
+    private static final MSMPNamespace NAMESPACE = new MSMPNamespace("vision");
+    private final VisionService service = new VisionService();
 
     /**
      * Provides access to the {@link ManagementServer}
@@ -38,15 +39,17 @@ public class MSMPVision implements ModInitializer {
 
         Config.register();
 
-        Endpoints.register(NS, () -> msmp);
+        Endpoints.register(NAMESPACE, () -> msmp, this.service);
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            NS.attach(server);
+            NAMESPACE.attach(server);
             msmp = new MSMPServer(server);
+            this.service.start();
         });
 
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
-            NS.detach();
+            this.service.stop();
+            NAMESPACE.detach();
             msmp = null;
         });
 
