@@ -1,30 +1,37 @@
 <img src="assets/icon.png" width="64" align="right">
 
 # MSMP Vision
- 
+
 A server-side Fabric mod that extends the [Minecraft Server Management Protocol](https://minecraft.wiki/w/Minecraft_Server_Management_Protocol) (MSMP) by providing a function for taking screenshots entirely on the server. No client and no GPU are required, the image is rendered by a multi-threaded software rasterizer.
- 
+
 This mod is designed for tooling, dashboards, automation systems, external monitoring tools, and integrations that need a picture of the world without running a game client.
- 
- 
+
+
 ## Installation
- 
+
 1. Download the mod `.jar` and place it in your server's `mods/` folder (requires [Fabric API](https://modrinth.com/mod/fabric-api)).
 2. Enable the Management Server in `server.properties`:
-```properties
+   ```properties
    management-server-enabled=true
-```
+   ```
 3. Start the server. The Management Server will listen on `localhost:25576` by default.
+
 On the first start the mod downloads the official client `.jar` of the running Minecraft version from Mojang and extracts the block models and textures to `<server_root_dir>/config/msmp/vision/client_assets/`. No Mojang assets are shipped with the mod. Until this is finished, screenshot requests fail with *"Client assets are still being prepared"*.
- 
- 
+
+
 ## Configuration
- 
+
 On first start, the mod generates a configuration file at `<server_root_dir>/config/msmp/vision/config.yml`:
- 
+
 ```yaml
 # Main configuration file for MSMP Vision.
 
+# Thread settings of the renderer.
+threads:
+  # Number of render worker threads (meshing and rasterization).
+  # 0 = automatic (available processors - 1, at least 1).
+  # @default: 0
+  render: 0
 # Values used when a request does not specify a setting.
 defaults:
   # Output width in pixels.
@@ -36,14 +43,12 @@ defaults:
   # Vertical field of view in degrees.
   # @default: 70.0
   fov: 70.0
-  # Supersampling factor (1 = off).
-  # @default: 1
-  ssaa: 1
-  # @deprecated: This key is no longer used and can be removed safely.
-  biomeBlend: 1
   # Render distance in blocks.
   # @default: 64
   render-distance: 64
+  # Supersampling factor (1 = off).
+  # @default: 1
+  ssaa: 1
   # Biome tint blend radius in blocks (0 = off).
   # @default: 1
   biome-blend: 1
@@ -57,7 +62,7 @@ limits:
   max-height: 1080
   # Maximum render distance in blocks.
   # @default: 128
-  max-render-distance: 256
+  max-render-distance: 128
   # Maximum supersampling factor.
   # @default: 3
   max-ssaa: 3
@@ -71,11 +76,7 @@ limits:
   # @default: 110.0
   max-fov: 110.0
 # Tuning options of the rasterizer.
-render:
-  # Number of render worker threads (meshing and rasterization).
-  # 0 = automatic (available processors - 1, at least 1).
-  # @default: 0
-  threads: 0
+rendering:
   # Edge length of a raster tile in pixels. One tile is one parallel work unit.
   # @default: 64
   tile-size: 64
@@ -85,26 +86,44 @@ render:
   # Skip back-facing triangles. Disable only for debugging.
   # @default: true
   backface-culling: true
-# Maximum time in seconds a single screenshot request may take.
+# Settings for chunks that are not loaded when a screenshot is requested.
+chunks:
+  # How chunks that are not loaded are handled while a screenshot is taken.
+  # NONE: only chunks that are already loaded (ex. by a player) are rendered.
+  # LOAD: missing chunks are loaded from disk, chunks that do not exist yet are generated.
+  # @possible: NONE | LOAD
+  # @default: 'LOAD'
+  mode: LOAD
+  # Maximum number of chunks that may be loaded (or generated) for a single request.
+  # Chunks beyond this limit are rendered as empty space. Only chunks inside the camera's view are considered.
+  # @default: 512
+  max-chunk-loads: 512
+  # Maximum time in seconds spent on loading chunks for a single request. The server thread is blocked during this time,
+  # keep it well below the server's watchdog (max-tick-time, 60s by default). Remaining chunks are rendered as empty space.
+  # @default: 10
+  load-timeout-seconds: 10
+# Maximum time in seconds a single screenshot request may take (without chunk loading).
 # @default: 30
 request-timeout-seconds: 30
 ```
- 
+
 `defaults` are used for every optional parameter a request omits. Requests that exceed a value in `limits` are rejected instead of being clamped. Rendering cost grows with `width * height * ssaa^2` and with the render distance, so lower the limits on weak servers.
- 
- 
+
+**Chunk loading:** With `chunks.mode: LOAD` (default) the mod loads the chunks inside the camera's view on demand, so screenshots also work where no player is. Chunks that were never generated are generated, which can take a while and creates world data. Use `NONE` if screenshots must never change the world. MSMP calls run on the **server thread**: the server does not tick while a screenshot is being loaded and rendered, so keep `load-timeout-seconds` and `request-timeout-seconds` well below the watchdog (`max-tick-time`, 60 s by default).
+
+
 ## RPC Methods
- 
+
 The mod currently provides the following MSMP RPC method. It is also automatically discoverable through the standard `rpc.discover` MSMP endpoint.
- 
+
 | Method              | Description                                                         |
 | ------------------- | ------------------------------------------------------------------- |
 | `vision:screenshot` | Renders a server-side screenshot and returns it as a Base64 PNG     |
- 
+
 ### `vision:screenshot`
- 
+
 Vectors are transferred as arrays, exactly like in the `entity` namespace.
- 
+
 | Parameter         | Type          | Required | Description                                                                        |
 | ----------------- | ------------- | -------- | ---------------------------------------------------------------------------------- |
 | `position`        | `[x, y, z]`   | yes      | Camera position                                                                    |
@@ -116,9 +135,9 @@ Vectors are transferred as arrays, exactly like in the `entity` namespace.
 | `render_distance` | int           | no       | Render distance in blocks. Default from config                                     |
 | `ssaa`            | int           | no       | Supersampling factor, `1` = off. Default from config                               |
 | `biome_blend`     | int           | no       | Biome tint blend radius in blocks, `0` = off. Default from config                  |
- 
+
 Example request:
- 
+
 ```json
 {
     "jsonrpc": "2.0",
@@ -132,9 +151,9 @@ Example request:
     }]
 }
 ```
- 
+
 Example response:
- 
+
 ```json
 {
     "jsonrpc": "2.0",
@@ -148,12 +167,12 @@ Example response:
     }
 }
 ```
- 
-Only chunks that are currently loaded are rendered; unloaded areas show up as empty space.
- 
+
+Chunks that are not loaded are loaded on demand (see `chunks` in the config). Whatever cannot be loaded within the limits shows up as empty space.
+
 > If you want more methods or parameters for other purposes, please [open an issue](https://github.com/MinecraftPlayground/msmp-vision-mod/issues/new?template=new_method_or_parameter_suggestion.yml)
- 
- 
+
+
 ## License
- 
+
 [LGPL-3.0](LICENSE)
