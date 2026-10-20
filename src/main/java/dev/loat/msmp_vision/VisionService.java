@@ -54,7 +54,7 @@ public final class VisionService {
         Path root = FabricLoader.getInstance().getConfigDir().resolve("msmp/vision/client_assets");
         AssetManager assets = new AssetManager(root, FabricLoader.getInstance().getRawGameVersion());
         TextureStore textures = new TextureStore(assets);
-        RenderExecutor executor = new RenderExecutor(config.threads.render);
+        RenderExecutor executor = new RenderExecutor(config.render.threads);
         SceneRenderer renderer = new SceneRenderer(assets, textures, executor);
 
         CompletableFuture<Void> ready = assets.initialize().thenRun(() -> TintResolver.initializeColorMaps(assets));

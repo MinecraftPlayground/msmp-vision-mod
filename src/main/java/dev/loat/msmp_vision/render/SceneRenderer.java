@@ -62,7 +62,7 @@ public final class SceneRenderer {
         long timeout = config.requestTimeoutSeconds;
         int width = settings.renderWidth();
         int height = settings.renderHeight();
-        boolean cull = config.rendering.backfaceCulling;
+        boolean cull = config.render.backfaceCulling;
 
         List<CompletableFuture<Projected>> jobs = new ArrayList<>();
         for (SectionSnapshot section : world.sections()) {
@@ -89,8 +89,8 @@ public final class SceneRenderer {
         SkyPainter.paint(framebuffer, camera, world.environment());
 
         float fogEnd = settings.renderDistance();
-        Fog fog = Fog.of((float) (fogEnd * config.rendering.fogStartFactor), fogEnd, world.environment().fogColor());
-        new TileRasterizer(this.executor, config.rendering.tileSize, timeout)
+        Fog fog = Fog.of((float) (fogEnd * config.render.fogStartFactor), fogEnd, world.environment().fogColor());
+        new TileRasterizer(this.executor, config.render.tileSize, timeout)
             .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), framebuffer, this.texturesById(), fog);
         return framebuffer.toImage(settings.ssaa());
     }

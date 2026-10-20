@@ -1,9 +1,15 @@
-package dev.loat.msmp_vision.config.files.rendering;
+package dev.loat.msmp_vision.config.files.render;
 
 import dev.loat.config_lib.annotation.Annotation;
 
 
-public class RenderingConfig {
+public class RenderConfig {
+
+    @Annotation.Comment("""
+        Number of render worker threads (meshing and rasterization).
+        0 = automatic (available processors - 1, at least 1).
+    """)
+    public int threads = 0;
 
     @Annotation.Comment("Edge length of a raster tile in pixels. One tile is one parallel work unit.")
     @Annotation.Key("tile-size")

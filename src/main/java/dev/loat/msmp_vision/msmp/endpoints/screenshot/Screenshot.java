@@ -2,6 +2,7 @@ package dev.loat.msmp_vision.msmp.endpoints.screenshot;
 
 import dev.loat.msmp.MSMPNamespace;
 import dev.loat.msmp_vision.VisionService;
+import dev.loat.msmp_vision.config.Config;
 import dev.loat.msmp_vision.logging.RPCConnectionLogger;
 
 
@@ -61,7 +62,7 @@ public class Screenshot {
                 try {
                     ScreenshotResponse response = service.screenshot(server, params);
                     RPCConnectionLogger.info(client.connectionId(),
-                        "vision:screenshot - rendered %dx%d in %d ms".formatted(response.width(), response.height(), response.renderTimeMs()));
+                        "vision:screenshot - rendered %dx%d in %dms on %d threads".formatted(response.width(), response.height(), response.renderTimeMs(), Config.getConfig().render.threads));
                     return response;
                 } catch (RuntimeException e) {
                     RPCConnectionLogger.warning(client.connectionId(), "vision:screenshot - " + e.getMessage());

@@ -3,8 +3,7 @@ package dev.loat.msmp_vision.config.files;
 import dev.loat.config_lib.annotation.Annotation;
 import dev.loat.msmp_vision.config.files.defaults.DefaultsConfig;
 import dev.loat.msmp_vision.config.files.limits.LimitsConfig;
-import dev.loat.msmp_vision.config.files.rendering.RenderingConfig;
-import dev.loat.msmp_vision.config.files.threads.ThreadsConfig;
+import dev.loat.msmp_vision.config.files.render.RenderConfig;
 
 
 @Annotation.Comment("""
@@ -14,8 +13,9 @@ public class MSMPVisionConfigFile {
 
     private MSMPVisionConfigFile() {}
 
-    @Annotation.Comment("Thread settings of the renderer.")
-    public ThreadsConfig threads = new ThreadsConfig();
+    @Annotation.Comment("Maximum time in seconds a single screenshot request may take.")
+    @Annotation.Key("request-timeout-seconds")
+    public int requestTimeoutSeconds = 30;
 
     @Annotation.Comment("Values used when a request does not specify a setting.")
     public DefaultsConfig defaults = new DefaultsConfig();
@@ -24,9 +24,5 @@ public class MSMPVisionConfigFile {
     public LimitsConfig limits = new LimitsConfig();
 
     @Annotation.Comment("Tuning options of the rasterizer.")
-    public RenderingConfig rendering = new RenderingConfig();
-
-    @Annotation.Comment("Maximum time in seconds a single screenshot request may take.")
-    @Annotation.Key("request-timeout-seconds")
-    public int requestTimeoutSeconds = 30;
+    public RenderConfig render = new RenderConfig();
 }
