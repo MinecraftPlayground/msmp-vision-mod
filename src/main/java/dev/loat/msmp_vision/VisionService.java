@@ -105,7 +105,7 @@ public final class VisionService {
 
         long start = System.nanoTime();
         Camera camera = new Camera(settings);
-        WorldSnapshot snapshot = this.capture(server, level, camera, settings, config.requestTimeoutSeconds);
+        WorldSnapshot snapshot = this.capture(server, level, camera, settings, config);
         BufferedImage image = current.renderer().render(snapshot, camera, settings, config);
         String encoded = ImageEncoder.toBase64Png(image);
         int elapsed = (int) ((System.nanoTime() - start) / 1_000_000L);
@@ -113,12 +113,17 @@ public final class VisionService {
         return new ScreenshotResponse(encoded, "png", image.getWidth(), image.getHeight(), elapsed);
     }
 
-    private WorldSnapshot capture(MinecraftServer server, ServerLevel level, Camera camera, RenderSettings settings, long timeoutSeconds) {
+    /**
+     * Captures the world on the server thread. MSMP handlers already run there, in which case the capture
+     * (including loading missing chunks) is done directly; otherwise it is scheduled on the server thread.
+     */
+    private WorldSnapshot capture(MinecraftServer server, ServerLevel level, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
         if (server.isSameThread()) {
-            return SnapshotCapture.capture(level, camera, settings);
+            return SnapshotCapture.capture(level, camera, settings, config.chunks);
         }
+        long timeoutSeconds = config.requestTimeoutSeconds + config.chunks.loadTimeoutSeconds;
         try {
-            return CompletableFuture.supplyAsync(() -> SnapshotCapture.capture(level, camera, settings), server)
+            return CompletableFuture.supplyAsync(() -> SnapshotCapture.capture(level, camera, settings, config.chunks), server)
                 .get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             throw new IllegalStateException("The server thread did not respond in time.");
