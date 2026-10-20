@@ -24,13 +24,7 @@ On first start, the mod generates a configuration file at `<server_root_dir>/con
  
 ```yaml
 # Main configuration file for MSMP Vision.
- 
-# Thread settings of the renderer.
-threads:
-  # Number of render worker threads (meshing and rasterization).
-  # 0 = automatic (available processors - 1, at least 1).
-  # @default: 0
-  render: 0
+
 # Values used when a request does not specify a setting.
 defaults:
   # Output width in pixels.
@@ -42,12 +36,14 @@ defaults:
   # Vertical field of view in degrees.
   # @default: 70.0
   fov: 70.0
-  # Render distance in blocks.
-  # @default: 64
-  render-distance: 64
   # Supersampling factor (1 = off).
   # @default: 1
   ssaa: 1
+  # @deprecated: This key is no longer used and can be removed safely.
+  biomeBlend: 1
+  # Render distance in blocks.
+  # @default: 64
+  render-distance: 64
   # Biome tint blend radius in blocks (0 = off).
   # @default: 1
   biome-blend: 1
@@ -61,7 +57,7 @@ limits:
   max-height: 1080
   # Maximum render distance in blocks.
   # @default: 128
-  max-render-distance: 128
+  max-render-distance: 256
   # Maximum supersampling factor.
   # @default: 3
   max-ssaa: 3
@@ -75,7 +71,11 @@ limits:
   # @default: 110.0
   max-fov: 110.0
 # Tuning options of the rasterizer.
-rendering:
+render:
+  # Number of render worker threads (meshing and rasterization).
+  # 0 = automatic (available processors - 1, at least 1).
+  # @default: 0
+  threads: 0
   # Edge length of a raster tile in pixels. One tile is one parallel work unit.
   # @default: 64
   tile-size: 64
