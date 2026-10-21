@@ -25,6 +25,11 @@ public final class SectionMesher {
     /** Directional shading per {@link Direction#ordinal()}: DOWN, UP, NORTH, SOUTH, WEST, EAST. */
     private static final float[] FACE_SHADE = {0.5f, 1.0f, 0.8f, 0.8f, 0.6f, 0.6f};
     private static final float MIN_LIGHT = 0.04f;
+    /**
+     * Debug aid, enabled with the JVM flag {@code -Dmsmp_vision.debug.sections=true}: tints chunk columns in an
+     * alternating red/blue checkerboard so that chunk borders and missing columns become visible in the screenshot.
+     */
+    private static final boolean DEBUG_SECTIONS = Boolean.getBoolean("msmp_vision.debug.sections");
     private static final float[] FLUID_UV_TOP = {0, 0, 0, 1, 1, 1, 1, 0};
 
     private final WorldSnapshot world;
@@ -38,6 +43,7 @@ public final class SectionMesher {
     private final int blend;
     private final float[] scratch = new float[12];
     private final float[] sideUv = new float[8];
+    private int debugTint = 0xFFFFFF;
 
     /**
      * Creates a mesher.
@@ -70,6 +76,9 @@ public final class SectionMesher {
     public SectionGeometry mesh(SectionSnapshot section) {
         QuadBuffer opaque = new QuadBuffer();
         QuadBuffer translucent = new QuadBuffer();
+        if (DEBUG_SECTIONS) {
+            this.debugTint = ((section.sectionX() + section.sectionZ()) & 1) == 0 ? 0xFFA0A0 : 0xA0A0FF;
+        }
         int baseX = section.sectionX() << 4;
         int baseY = section.sectionY() << 4;
         int baseZ = section.sectionZ() << 4;
@@ -117,7 +126,7 @@ public final class SectionMesher {
             Direction face = quad.face();
             float light = this.light(x, y, z, face, solid);
             float shade = quad.shade() ? FACE_SHADE[face.ordinal()] : 1.0f;
-            int tintRgb = quad.tintIndex() >= 0 ? this.tint.blockTint(this.world, state, x, y, z, this.blend) : 0xFFFFFF;
+            int tintRgb = multiply(quad.tintIndex() >= 0 ? this.tint.blockTint(this.world, state, x, y, z, this.blend) : 0xFFFFFF, this.debugTint);
             int color = pack(shade * light, tintRgb);
             (quad.translucent() ? translucent : opaque).add(quad.positions(), x - this.originX, y - this.originY, z - this.originZ, quad.uvs(), quad.texture(), color);
         }
@@ -128,7 +137,7 @@ public final class SectionMesher {
         TextureData still = this.textures.get(water ? "minecraft:block/water_still" : "minecraft:block/lava_still");
         TextureData flow = this.textures.get(water ? "minecraft:block/water_flow" : "minecraft:block/lava_flow");
         QuadBuffer target = water ? translucent : opaque;
-        int tintRgb = water ? this.tint.waterTint(this.world, x, y, z, this.blend) : 0xFFFFFF;
+        int tintRgb = multiply(water ? this.tint.waterTint(this.world, x, y, z, this.blend) : 0xFFFFFF, this.debugTint);
         float light = water ? this.light(x, y, z, Direction.UP, false) : 1.0f;
 
         FluidState above = this.world.blockState(x, y + 1, z).getFluidState();
@@ -168,6 +177,13 @@ public final class SectionMesher {
         float block = this.world.blockLight(lx, ly, lz) / 15.0f;
         float level = Math.max(sky, block);
         return Math.max(level / (4.0f - 3.0f * level), MIN_LIGHT);
+    }
+
+    private static int multiply(int a, int b) {
+        int r = ((a >> 16) & 0xFF) * ((b >> 16) & 0xFF) / 255;
+        int g = ((a >> 8) & 0xFF) * ((b >> 8) & 0xFF) / 255;
+        int bl = (a & 0xFF) * (b & 0xFF) / 255;
+        return (r << 16) | (g << 8) | bl;
     }
 
     private static int pack(float brightness, int tintRgb) {
