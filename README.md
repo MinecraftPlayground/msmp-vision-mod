@@ -43,9 +43,9 @@ defaults:
   # Vertical field of view in degrees.
   # @default: 70.0
   fov: 70.0
-  # Render distance in blocks.
-  # @default: 64
-  render-distance: 64
+  # Render distance in chunks (1 chunk = 16 blocks), like in Minecraft's video settings.
+  # @default: 4
+  render-distance-chunks: 4
   # Supersampling factor (1 = off).
   # @default: 1
   ssaa: 1
@@ -60,9 +60,9 @@ limits:
   # Maximum output height.
   # @default: 1080
   max-height: 1080
-  # Maximum render distance in blocks.
-  # @default: 128
-  max-render-distance: 128
+  # Maximum render distance in chunks (1 chunk = 16 blocks).
+  # @default: 8
+  max-render-distance-chunks: 8
   # Maximum supersampling factor.
   # @default: 3
   max-ssaa: 3
@@ -80,9 +80,9 @@ rendering:
   # Edge length of a raster tile in pixels. One tile is one parallel work unit.
   # @default: 64
   tile-size: 64
-  # Fog starts at this fraction of the render distance.
-  # @default: 0.75
-  fog-start-factor: 0.75
+  # Fog starts at this fraction of the render distance. Minecraft itself only fogs the last ~10%.
+  # @default: 0.9
+  fog-start-factor: 0.9
   # Skip back-facing triangles. Disable only for debugging.
   # @default: true
   backface-culling: true
@@ -96,8 +96,8 @@ chunks:
   mode: LOAD
   # Maximum number of chunks that may be loaded (or generated) for a single request.
   # Chunks beyond this limit are rendered as empty space. Only chunks inside the camera's view are considered.
-  # @default: 512
-  max-chunk-loads: 512
+  # @default: 2048
+  max-chunk-loads: 2048
   # Maximum time in seconds spent on loading chunks for a single request. The server thread is blocked during this time,
   # keep it well below the server's watchdog (max-tick-time, 60s by default). Remaining chunks are rendered as empty space.
   # @default: 10
@@ -107,7 +107,7 @@ chunks:
 request-timeout-seconds: 30
 ```
 
-`defaults` are used for every optional parameter a request omits. Requests that exceed a value in `limits` are rejected instead of being clamped. Rendering cost grows with `width * height * ssaa^2` and with the render distance, so lower the limits on weak servers.
+`defaults` are used for every optional parameter a request omits. Requests that exceed a value in `limits` are rejected instead of being clamped. Rendering cost grows with `width * height * ssaa^2` and with the square of the render distance (a render distance of 16 chunks can mean up to ~1000 chunks in view, so raise `chunks.max-chunk-loads` accordingly), so lower the limits on weak servers.
 
 **Chunk loading:** With `chunks.mode: LOAD` (default) the mod loads the chunks inside the camera's view on demand, so screenshots also work where no player is. Chunks that were never generated are generated, which can take a while and creates world data. Use `NONE` if screenshots must never change the world. MSMP calls run on the **server thread**: the server does not tick while a screenshot is being loaded and rendered, so keep `load-timeout-seconds` and `request-timeout-seconds` well below the watchdog (`max-tick-time`, 60 s by default).
 
@@ -132,7 +132,7 @@ Vectors are transferred as arrays, exactly like in the `entity` namespace.
 | `width`           | int           | no       | Output width in pixels. Default from config                                        |
 | `height`          | int           | no       | Output height in pixels. Default from config                                       |
 | `fov`             | number        | no       | Vertical field of view in degrees. Default from config                             |
-| `render_distance` | int           | no       | Render distance in blocks. Default from config                                     |
+| `render_distance` | int           | no       | Render distance in chunks (1 chunk = 16 blocks), like in Minecraft's video settings. Default from config |
 | `ssaa`            | int           | no       | Supersampling factor, `1` = off. Default from config                               |
 | `biome_blend`     | int           | no       | Biome tint blend radius in blocks, `0` = off. Default from config                  |
 

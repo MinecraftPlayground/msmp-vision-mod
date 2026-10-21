@@ -13,9 +13,9 @@ public class LimitsConfig {
     @Annotation.Key("max-height")
     public int maxHeight = 1080;
 
-    @Annotation.Comment("Maximum render distance in blocks.")
+    @Annotation.Comment("Maximum render distance in chunks.")
     @Annotation.Key("max-render-distance")
-    public int maxRenderDistance = 128;
+    public int maxRenderDistance = 32;
 
     @Annotation.Comment("Maximum supersampling factor.")
     @Annotation.Key("max-ssaa")

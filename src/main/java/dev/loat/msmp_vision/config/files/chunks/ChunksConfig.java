@@ -17,7 +17,7 @@ public class ChunksConfig {
         Chunks beyond this limit are rendered as empty space. Only chunks inside the camera's view are considered.
     """)
     @Annotation.Key("max-chunk-loads")
-    public int maxChunkLoads = 512;
+    public int maxChunkLoads = 2048;
 
     @Annotation.Comment("""
         Maximum time in seconds spent on loading chunks for a single request. The server thread is blocked during this time,

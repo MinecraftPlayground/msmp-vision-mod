@@ -19,7 +19,7 @@ import dev.loat.msmp_vision.msmp.exceptions.InvalidParamsException;
  * @param width Output width in pixels.
  * @param height Output height in pixels.
  * @param fov Vertical field of view in degrees.
- * @param renderDistance Render distance in blocks.
+ * @param renderDistance Render distance in chunks.
  * @param ssaa Supersampling factor (1 = off).
  * @param biomeBlend Biome tint blend radius in blocks.
  */

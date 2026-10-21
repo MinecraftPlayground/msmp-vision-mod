@@ -14,9 +14,9 @@ public class DefaultsConfig {
     @Annotation.Comment("Vertical field of view in degrees.")
     public double fov = 70.0;
 
-    @Annotation.Comment("Render distance in blocks.")
+    @Annotation.Comment("Render distance in chunks.")
     @Annotation.Key("render-distance")
-    public int renderDistance = 64;
+    public int renderDistance = 4;
 
     @Annotation.Comment("Supersampling factor (1 = off).")
     public int ssaa = 1;

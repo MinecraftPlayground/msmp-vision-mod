@@ -66,13 +66,18 @@ public final class SnapshotCapture {
         LevelLightEngine light = level.getLightEngine();
         int minSectionY = level.getMinSectionY();
 
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(Math.max(0, chunks.loadTimeoutSeconds));
+        long start = System.nanoTime();
+        long deadline = start + TimeUnit.SECONDS.toNanos(Math.max(0, chunks.loadTimeoutSeconds));
+        List<Column> columns = visibleColumns(level, camera, settings, radius);
+        int resident = 0;
         int loaded = 0;
         int skipped = 0;
 
-        for (Column column : visibleColumns(level, camera, settings, radius)) {
+        for (Column column : columns) {
             LevelChunk chunk = cache.getChunkNow(column.x(), column.z());
-            if (chunk == null && chunks.mode == ChunksConfig.Mode.LOAD) {
+            if (chunk != null) {
+                resident++;
+            } else if (chunks.mode == ChunksConfig.Mode.LOAD) {
                 if (loaded >= chunks.maxChunkLoads || System.nanoTime() >= deadline) {
                     skipped++;
                     continue;
@@ -88,9 +93,11 @@ public final class SnapshotCapture {
             }
         }
 
+        Logger.info("Captured %d section(s) from %d chunk column(s) in view (%d already loaded, %d newly loaded, %d skipped) in %d ms."
+            .formatted(snapshot.sections().size(), columns.size(), resident, loaded, skipped, (System.nanoTime() - start) / 1_000_000L));
         if (skipped > 0) {
-            Logger.warning("Chunk loading limit reached, %d chunk(s) were not loaded and are missing in the screenshot (loaded %d)."
-                .formatted(skipped, loaded));
+            Logger.warning("Chunk loading limit reached: %d chunk(s) were not loaded and are missing in the screenshot. Raise 'chunks.max-chunk-loads' or 'chunks.load-timeout-seconds', or lower the render distance."
+                .formatted(skipped));
         }
         return snapshot;
     }
@@ -103,8 +110,11 @@ public final class SnapshotCapture {
         int maxChunkX = Mth.floor(px + radius) >> 4;
         int minChunkZ = Mth.floor(pz - radius) >> 4;
         int maxChunkZ = Mth.floor(pz + radius) >> 4;
-        int minY = level.getMinY();
-        int maxY = minY + level.getHeight();
+        // Only sections within the render radius are ever used, so the column test only needs that height range.
+        // Testing the full world height would let the tilted frustum planes pick up many columns that can never be seen.
+        double py = settings.position().get(1);
+        int minY = Math.max(level.getMinY(), Mth.floor(py - radius));
+        int maxY = Math.min(level.getMinY() + level.getHeight(), Mth.ceil(py + radius));
         double reach = radius + 12; // half diagonal of a chunk
 
         List<Column> columns = new ArrayList<>();

@@ -15,9 +15,9 @@ public class RenderConfig {
     @Annotation.Key("tile-size")
     public int tileSize = 64;
 
-    @Annotation.Comment("Fog starts at this fraction of the render distance.")
+    @Annotation.Comment("Fog starts at this fraction of the render distance. Minecraft itself only fogs the last ~10%.")
     @Annotation.Key("fog-start-factor")
-    public double fogStartFactor = 0.75;
+    public double fogStartFactor = 0.9;
 
     @Annotation.Comment("Skip back-facing triangles. Disable only for debugging.")
     @Annotation.Key("backface-culling")
