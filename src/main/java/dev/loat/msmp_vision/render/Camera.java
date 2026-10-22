@@ -50,7 +50,7 @@ public final class Camera {
             (float) (settings.position().get(2) - this.originZ)
         );
         Matrix4f matrix = new Matrix4f()
-            .perspective((float) Math.toRadians(settings.fov()), this.aspect, 0.05f, settings.renderDistance() + 64f)
+            .perspective((float) Math.toRadians(settings.fov()), this.aspect, 0.05f, settings.renderDistanceBlocks() + 64f)
             .lookAt(eye, new Vector3f(eye).add(this.forward), new Vector3f(0, 1, 0));
         matrix.get(this.viewProjection);
         this.frustum = new FrustumIntersection(matrix);

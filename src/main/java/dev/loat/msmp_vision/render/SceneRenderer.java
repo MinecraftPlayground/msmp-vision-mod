@@ -88,8 +88,9 @@ public final class SceneRenderer {
         Framebuffer framebuffer = new Framebuffer(width, height);
         SkyPainter.paint(framebuffer, camera, world.environment());
 
-        float fogEnd = settings.renderDistance();
-        Fog fog = Fog.of((float) (fogEnd * config.render.fogStartFactor), fogEnd, world.environment().fogColor());
+        float fogEnd = settings.renderDistanceBlocks();
+        Fog fog = Fog.of((float) (fogEnd * config.render.fogStartFactor), fogEnd, world.environment().fogColor(),
+            camera.tanHalfFov(), camera.aspect(), width, height);
         new TileRasterizer(this.executor, config.render.tileSize, timeout)
             .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), framebuffer, this.texturesById(), fog);
         return framebuffer.toImage(settings.ssaa());

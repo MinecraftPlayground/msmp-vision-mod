@@ -19,7 +19,7 @@ import dev.loat.msmp_vision.msmp.exceptions.InvalidParamsException;
  * @param width Output width in pixels.
  * @param height Output height in pixels.
  * @param fov Vertical field of view in degrees.
- * @param renderDistance Render distance in chunks.
+ * @param renderDistance Render distance in chunks (1 chunk = 16 blocks), like in Minecraft's video settings.
  * @param ssaa Supersampling factor (1 = off).
  * @param biomeBlend Biome tint blend radius in blocks.
  */
@@ -62,7 +62,7 @@ public record RenderSettings(
         int width = request.width().orElse(defaultsConfig.width);
         int height = request.height().orElse(defaultsConfig.height);
         double fov = request.fov().orElse(defaultsConfig.fov);
-        int distance = request.renderDistance().orElse(defaultsConfig.renderDistance);
+        int distance = request.renderDistance().orElse(defaultsConfig.renderDistanceChunks);
         int ssaa = request.ssaa().orElse(defaultsConfig.ssaa);
         int blend = request.biomeBlend().orElse(defaultsConfig.biomeBlend);
 
@@ -74,7 +74,7 @@ public record RenderSettings(
 
         require(width <= limitsConfig.maxWidth, "'width' exceeds the limit of " + limitsConfig.maxWidth);
         require(height <= limitsConfig.maxHeight, "'height' exceeds the limit of " + limitsConfig.maxHeight);
-        require(distance <= limitsConfig.maxRenderDistance, "'render_distance' exceeds the limit of " + limitsConfig.maxRenderDistance);
+        require(distance <= limitsConfig.maxRenderDistanceChunks, "'render_distance' exceeds the limit of " + limitsConfig.maxRenderDistanceChunks + " chunks");
         require(ssaa <= limitsConfig.maxSsaa, "'ssaa' exceeds the limit of " + limitsConfig.maxSsaa);
         require(fov >= limitsConfig.minFov && fov <= limitsConfig.maxFov, "'fov' must be between " + limitsConfig.minFov + " and " + limitsConfig.maxFov);
         require((long) width * ssaa * height * ssaa <= limitsConfig.maxRenderedPixels, "width*height*ssaa^2 exceeds " + limitsConfig.maxRenderedPixels + " pixels");
@@ -90,6 +90,11 @@ public record RenderSettings(
             ssaa,
             Math.min(blend, 4)
         );
+    }
+
+    /** @return The render distance in blocks. */
+    public int renderDistanceBlocks() {
+        return this.renderDistance * 16;
     }
 
     /** @return Framebuffer width including supersampling. */

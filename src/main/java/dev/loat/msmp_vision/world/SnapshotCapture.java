@@ -61,7 +61,7 @@ public final class SnapshotCapture {
         );
         WorldSnapshot snapshot = new WorldSnapshot(environment);
 
-        double radius = settings.renderDistance() + 16;
+        double radius = settings.renderDistanceBlocks() + 16;
         ServerChunkCache cache = level.getChunkSource();
         LevelLightEngine light = level.getLightEngine();
         int minSectionY = level.getMinSectionY();
@@ -93,8 +93,8 @@ public final class SnapshotCapture {
             }
         }
 
-        Logger.info("Captured %d section(s) from %d chunk column(s) in view (%d already loaded, %d newly loaded, %d skipped) in %d ms."
-            .formatted(snapshot.sections().size(), columns.size(), resident, loaded, skipped, (System.nanoTime() - start) / 1_000_000L));
+        Logger.info("Captured %d section(s) from %d chunk column(s) in view at render distance %d chunks (%d already loaded, %d newly loaded, %d skipped) in %d ms."
+            .formatted(snapshot.sections().size(), columns.size(), settings.renderDistance(), resident, loaded, skipped, (System.nanoTime() - start) / 1_000_000L));
         if (skipped > 0) {
             Logger.warning("Chunk loading limit reached: %d chunk(s) were not loaded and are missing in the screenshot. Raise 'chunks.max-chunk-loads' or 'chunks.load-timeout-seconds', or lower the render distance."
                 .formatted(skipped));

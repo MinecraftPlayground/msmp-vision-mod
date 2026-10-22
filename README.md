@@ -61,8 +61,8 @@ limits:
   # @default: 1080
   max-height: 1080
   # Maximum render distance in chunks (1 chunk = 16 blocks).
-  # @default: 8
-  max-render-distance-chunks: 8
+  # @default: 32
+  max-render-distance-chunks: 32
   # Maximum supersampling factor.
   # @default: 3
   max-ssaa: 3
