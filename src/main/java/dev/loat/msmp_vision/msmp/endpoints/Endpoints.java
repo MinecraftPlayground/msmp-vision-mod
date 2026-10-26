@@ -4,6 +4,10 @@ import dev.loat.msmp.MSMPNamespace;
 import dev.loat.msmp.MSMPServer;
 import dev.loat.msmp_vision.VisionService;
 import dev.loat.msmp_vision.msmp.endpoints.screenshot.Screenshot;
+import dev.loat.msmp_vision.msmp.endpoints.screenshot.ScreenshotNotifier;
+import dev.loat.msmp_vision.msmp.endpoints.screenshot.notification.completed.NotificationScreenshotCompleted;
+import dev.loat.msmp_vision.msmp.endpoints.screenshot.notification.failed.NotificationScreenshotFailed;
+import dev.loat.msmp_vision.msmp.endpoints.screenshot.queue.ScreenshotQueue;
 
 import java.util.function.Supplier;
 
@@ -26,5 +30,12 @@ public class Endpoints {
     public static void register(MSMPNamespace namespace, Supplier<MSMPServer> msmpServer, VisionService service) {
 
         Screenshot.register(namespace, service);
+
+        service.bindNotifier(new ScreenshotNotifier(
+            NotificationScreenshotCompleted.register(namespace),
+            NotificationScreenshotFailed.register(namespace),
+            msmpServer
+        ));
+        ScreenshotQueue.register(namespace, service);
     }
 }

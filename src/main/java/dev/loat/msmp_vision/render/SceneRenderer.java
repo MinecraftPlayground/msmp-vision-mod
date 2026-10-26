@@ -56,9 +56,10 @@ public final class SceneRenderer {
      * @param camera The camera.
      * @param settings The settings.
      * @param config The current configuration.
-     * @return The final image.
+     * @return The final image together with phase timings.
      */
-    public BufferedImage render(WorldSnapshot world, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
+    public Rendered render(WorldSnapshot world, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
+        long startNanos = System.nanoTime();
         long timeout = config.requestTimeoutSeconds;
         int width = settings.renderWidth();
         int height = settings.renderHeight();
@@ -76,6 +77,7 @@ public final class SceneRenderer {
             }, this.executor.executor()));
         }
         this.executor.awaitAll(jobs, timeout);
+        long meshedNanos = System.nanoTime();
 
         List<TriangleBuffer> opaque = new ArrayList<>(jobs.size());
         List<TriangleBuffer> translucent = new ArrayList<>(jobs.size());
@@ -93,7 +95,9 @@ public final class SceneRenderer {
             camera.tanHalfFov(), camera.aspect(), width, height);
         new TileRasterizer(this.executor, config.render.tileSize, timeout)
             .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), framebuffer, this.texturesById(), fog);
-        return framebuffer.toImage(settings.ssaa());
+        BufferedImage image = framebuffer.toImage(settings.ssaa());
+        long doneNanos = System.nanoTime();
+        return new Rendered(image, meshedNanos - startNanos, doneNanos - meshedNanos);
     }
 
     private TextureData[] texturesById() {

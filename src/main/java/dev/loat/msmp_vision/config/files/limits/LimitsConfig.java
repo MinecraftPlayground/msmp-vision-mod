@@ -32,4 +32,8 @@ public class LimitsConfig {
     @Annotation.Comment("Maximum field of view in degrees.")
     @Annotation.Key("max-fov")
     public double maxFov = 110.0;
+
+    @Annotation.Comment("Maximum number of queued screenshots (vision:screenshot/queue) that may be pending at the same time.")
+    @Annotation.Key("max-pending-screenshots")
+    public int maxPendingScreenshots = 4;
 }
