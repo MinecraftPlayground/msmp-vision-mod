@@ -19,6 +19,13 @@ public class RenderConfig {
     @Annotation.Key("fog-start-factor")
     public double fogStartFactor = 0.9;
 
+    @Annotation.Comment("""
+        Smooth lighting and ambient occlusion like Minecraft's \"Smooth Lighting\" option:
+        light is blended across each block face and corners are darkened. Disable for flat lighting, which meshes a bit faster.
+    """)
+    @Annotation.Key("smooth-lighting")
+    public boolean smoothLighting = true;
+
     @Annotation.Comment("Skip back-facing triangles. Disable only for debugging.")
     @Annotation.Key("backface-culling")
     public boolean backfaceCulling = true;

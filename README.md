@@ -83,6 +83,10 @@ rendering:
   # Fog starts at this fraction of the render distance. Minecraft itself only fogs the last ~10%.
   # @default: 0.9
   fog-start-factor: 0.9
+  # Smooth lighting and ambient occlusion like Minecraft's "Smooth Lighting" option:
+  # light is blended across each block face and corners are darkened. Disable for flat lighting, which meshes a bit faster.
+  # @default: true
+  smooth-lighting: true
   # Skip back-facing triangles. Disable only for debugging.
   # @default: true
   backface-culling: true
