@@ -86,7 +86,7 @@ public final class ImageEncoder {
                 compressed.write(buffer, 0, n);
             }
         } finally {
-            deflater.end();
+            deflater.close();
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream(compressed.size() + 64);
