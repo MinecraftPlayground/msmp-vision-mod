@@ -17,6 +17,7 @@ public final class Fog {
     private final float tanY;
     private final float pixelToNdcX;
     private final float pixelToNdcY;
+    private final float maxScale;
 
     private Fog(float start, float end, int r, int g, int b, float tanX, float tanY, int width, int height) {
         this.start = start;
@@ -28,6 +29,8 @@ public final class Fog {
         this.tanY = tanY;
         this.pixelToNdcX = 2f / width;
         this.pixelToNdcY = 2f / height;
+        // Largest ratio of real distance to view depth, reached in the corners of the screen
+        this.maxScale = (float) Math.sqrt(1f + tanX * tanX + tanY * tanY);
     }
 
     /**
@@ -64,6 +67,9 @@ public final class Fog {
      * @return Visibility 1 (no fog) to 0 (full fog).
      */
     public float factor(int x, int y, float w) {
+        if (w * this.maxScale <= this.start) {
+            return 1f; // even the farthest pixel of this depth is still before the fog
+        }
         float nx = ((x + 0.5f) * this.pixelToNdcX - 1f) * this.tanX;
         float ny = (1f - (y + 0.5f) * this.pixelToNdcY) * this.tanY;
         float distance = w * (float) Math.sqrt(1f + nx * nx + ny * ny);

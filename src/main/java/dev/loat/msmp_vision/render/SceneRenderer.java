@@ -88,16 +88,19 @@ public final class SceneRenderer {
         }
 
         Framebuffer framebuffer = new Framebuffer(width, height);
-        SkyPainter.paint(framebuffer, camera, world.environment());
+        long skyStart = System.nanoTime();
+        SkyPainter.paint(framebuffer, camera, world.environment(), this.executor, timeout);
+        long skyDone = System.nanoTime();
 
         float fogEnd = settings.renderDistanceBlocks();
         Fog fog = Fog.of((float) (fogEnd * config.render.fogStartFactor), fogEnd, world.environment().fogColor(),
             camera.tanHalfFov(), camera.aspect(), width, height);
         new TileRasterizer(this.executor, config.render.tileSize, timeout)
             .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), framebuffer, this.texturesById(), fog);
+        long tilesDone = System.nanoTime();
         BufferedImage image = framebuffer.toImage(settings.ssaa());
         long doneNanos = System.nanoTime();
-        return new Rendered(image, meshedNanos - startNanos, doneNanos - meshedNanos);
+        return new Rendered(image, meshedNanos - startNanos, skyDone - skyStart, tilesDone - skyDone, doneNanos - tilesDone);
     }
 
     private TextureData[] texturesById() {

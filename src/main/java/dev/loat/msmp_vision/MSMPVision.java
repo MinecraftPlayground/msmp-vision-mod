@@ -7,7 +7,6 @@ import dev.loat.msmp_vision.logging.Logger;
 import dev.loat.msmp_vision.msmp.endpoints.Endpoints;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.jsonrpc.ManagementServer;
 
 /**
@@ -47,8 +46,6 @@ public class MSMPVision implements ModInitializer {
             msmp = new MSMPServer(server);
             this.service.start();
         });
-
-        ServerTickEvents.END_SERVER_TICK.register(this.service::tick);
 
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             this.service.stop();

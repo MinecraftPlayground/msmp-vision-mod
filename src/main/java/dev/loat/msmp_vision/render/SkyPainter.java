@@ -4,7 +4,10 @@ import dev.loat.msmp_vision.raster.Framebuffer;
 import dev.loat.msmp_vision.world.EnvironmentSnapshot;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Fills the framebuffer with a sky gradient, sun and moon. The horizon colour equals the fog colour so that
@@ -19,19 +22,21 @@ public final class SkyPainter {
     private static final float SUN_HALF = 0.15f;
     private static final float MOON_HALF = 0.10f;
 
+    /** Rows per parallel job. */
+    private static final int BAND_ROWS = 32;
+
     private SkyPainter() {}
 
     /**
-     * Paints the sky and clears depth.
+     * Paints the sky and clears depth. The image is split into bands of rows that are painted in parallel.
      *
      * @param target The framebuffer.
      * @param camera The camera.
      * @param environment Environment values.
+     * @param executor Worker pool.
+     * @param timeoutSeconds Maximum time for the whole sky.
      */
-    public static void paint(Framebuffer target, Camera camera, EnvironmentSnapshot environment) {
-        int width = target.width();
-        int height = target.height();
-        int[] color = target.color();
+    public static void paint(Framebuffer target, Camera camera, EnvironmentSnapshot environment, RenderExecutor executor, long timeoutSeconds) {
         Arrays.fill(target.depth(), 0f);
 
         float[] horizon = rgb(environment.fogColor());
@@ -41,8 +46,24 @@ public final class SkyPainter {
         Vector3f sun = new Vector3f((float) -Math.sin(angle), (float) Math.cos(angle), 0).normalize();
         Vector3f tangent = new Vector3f((float) Math.cos(angle), (float) Math.sin(angle), 0);
 
+        int height = target.height();
+        List<CompletableFuture<Void>> jobs = new ArrayList<>();
+        for (int from = 0; from < height; from += BAND_ROWS) {
+            int start = from;
+            int end = Math.min(height, from + BAND_ROWS);
+            jobs.add(CompletableFuture.runAsync(
+                () -> paintRows(target, camera, horizon, zenith, sun, tangent, start, end), executor.executor()));
+        }
+        executor.awaitAll(jobs, timeoutSeconds);
+    }
+
+    private static void paintRows(Framebuffer target, Camera camera, float[] horizon, float[] zenith,
+                                  Vector3f sun, Vector3f tangent, int fromRow, int toRow) {
+        int width = target.width();
+        int height = target.height();
+        int[] color = target.color();
         Vector3f dir = new Vector3f();
-        for (int y = 0; y < height; y++) {
+        for (int y = fromRow; y < toRow; y++) {
             float ndcY = 1f - 2f * (y + 0.5f) / height;
             for (int x = 0; x < width; x++) {
                 float ndcX = 2f * (x + 0.5f) / width - 1f;

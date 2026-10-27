@@ -26,13 +26,6 @@ public class ChunksConfig {
     @Annotation.Key("load-timeout-seconds")
     public int loadTimeoutSeconds = 10;
 
-    @Annotation.Comment("""
-        Maximum time in milliseconds per server tick that is spent on loading chunks for queued screenshots
-        (vision:screenshot/queue). Lower values keep the server smoother but make queued screenshots take longer.
-    """)
-    @Annotation.Key("tick-budget-ms")
-    public int tickBudgetMs = 15;
-
     public static enum Mode {
         NONE,
         LOAD

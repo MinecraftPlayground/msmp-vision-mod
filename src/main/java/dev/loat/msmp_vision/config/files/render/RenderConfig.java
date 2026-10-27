@@ -22,4 +22,11 @@ public class RenderConfig {
     @Annotation.Comment("Skip back-facing triangles. Disable only for debugging.")
     @Annotation.Key("backface-culling")
     public boolean backfaceCulling = true;
+
+    @Annotation.Comment("""
+        Deflate level of the PNG encoder, 0 (no compression) to 9 (smallest file).
+        1 encodes about 2.5x faster than 6 for a file that is roughly 30% larger.
+    """)
+    @Annotation.Key("png-compression-level")
+    public int pngCompressionLevel = 1;
 }

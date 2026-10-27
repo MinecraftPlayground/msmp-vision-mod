@@ -86,6 +86,10 @@ rendering:
   # Skip back-facing triangles. Disable only for debugging.
   # @default: true
   backface-culling: true
+  # Deflate level of the PNG encoder, 0 (no compression) to 9 (smallest file).
+  # 1 encodes about 2.5x faster than 6 for a file that is roughly 30% larger.
+  # @default: 1
+  png-compression-level: 1
 # Settings for chunks that are not loaded when a screenshot is requested.
 chunks:
   # How chunks that are not loaded are handled while a screenshot is taken.
