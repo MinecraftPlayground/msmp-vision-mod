@@ -71,7 +71,7 @@ public final class SceneRenderer {
                 continue;
             }
             jobs.add(CompletableFuture.supplyAsync(() -> {
-                SectionGeometry geometry = new SectionMesher(world, this.baker, this.textures, this.tint, camera, settings.biomeBlend()).mesh(section);
+                SectionGeometry geometry = new SectionMesher(world, this.baker, this.textures, this.tint, camera, settings.biomeBlend(), config.render.smoothLighting).mesh(section);
                 GeometryProjector projector = new GeometryProjector(camera.viewProjection(), width, height, cull);
                 return new Projected(projector.project(geometry.opaque()), projector.project(geometry.translucent()));
             }, this.executor.executor()));
