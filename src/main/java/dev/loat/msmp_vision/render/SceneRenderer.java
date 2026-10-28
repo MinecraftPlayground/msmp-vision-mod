@@ -56,13 +56,14 @@ public final class SceneRenderer {
      * @param camera The camera.
      * @param settings The settings.
      * @param config The current configuration.
-     * @return The final image.
+     * @return The final image together with phase timings.
      */
-    public BufferedImage render(WorldSnapshot world, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
+    public Rendered render(WorldSnapshot world, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
+        long startNanos = System.nanoTime();
         long timeout = config.requestTimeoutSeconds;
         int width = settings.renderWidth();
         int height = settings.renderHeight();
-        boolean cull = config.rendering.backfaceCulling;
+        boolean cull = config.render.backfaceCulling;
 
         List<CompletableFuture<Projected>> jobs = new ArrayList<>();
         for (SectionSnapshot section : world.sections()) {
@@ -70,12 +71,13 @@ public final class SceneRenderer {
                 continue;
             }
             jobs.add(CompletableFuture.supplyAsync(() -> {
-                SectionGeometry geometry = new SectionMesher(world, this.baker, this.textures, this.tint, camera, settings.biomeBlend()).mesh(section);
+                SectionGeometry geometry = new SectionMesher(world, this.baker, this.textures, this.tint, camera, settings.biomeBlend(), config.render.smoothLighting).mesh(section);
                 GeometryProjector projector = new GeometryProjector(camera.viewProjection(), width, height, cull);
                 return new Projected(projector.project(geometry.opaque()), projector.project(geometry.translucent()));
             }, this.executor.executor()));
         }
         this.executor.awaitAll(jobs, timeout);
+        long meshedNanos = System.nanoTime();
 
         List<TriangleBuffer> opaque = new ArrayList<>(jobs.size());
         List<TriangleBuffer> translucent = new ArrayList<>(jobs.size());
@@ -86,13 +88,19 @@ public final class SceneRenderer {
         }
 
         Framebuffer framebuffer = new Framebuffer(width, height);
-        SkyPainter.paint(framebuffer, camera, world.environment());
+        long skyStart = System.nanoTime();
+        SkyPainter.paint(framebuffer, camera, world.environment(), this.executor, timeout);
+        long skyDone = System.nanoTime();
 
-        float fogEnd = settings.renderDistance();
-        Fog fog = Fog.of((float) (fogEnd * config.rendering.fogStartFactor), fogEnd, world.environment().fogColor());
-        new TileRasterizer(this.executor, config.rendering.tileSize, timeout)
+        float fogEnd = settings.renderDistanceBlocks();
+        Fog fog = Fog.of((float) (fogEnd * config.render.fogStartFactor), fogEnd, world.environment().fogColor(),
+            camera.tanHalfFov(), camera.aspect(), width, height);
+        new TileRasterizer(this.executor, config.render.tileSize, timeout)
             .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), framebuffer, this.texturesById(), fog);
-        return framebuffer.toImage(settings.ssaa());
+        long tilesDone = System.nanoTime();
+        BufferedImage image = framebuffer.toImage(settings.ssaa());
+        long doneNanos = System.nanoTime();
+        return new Rendered(image, meshedNanos - startNanos, skyDone - skyStart, tilesDone - skyDone, doneNanos - tilesDone);
     }
 
     private TextureData[] texturesById() {

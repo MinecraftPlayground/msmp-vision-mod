@@ -10,13 +10,16 @@ import dev.loat.msmp_vision.world.EnvironmentSnapshot;
 import dev.loat.msmp_vision.world.SectionSnapshot;
 import dev.loat.msmp_vision.world.WorldSnapshot;
 import net.minecraft.core.Direction;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 
 /**
- * Builds the {@link SectionGeometry} of one section: block quads with flat lighting, face shading and biome tint,
- * plus simple fluid surfaces. Vertex colours are fully precomputed so the fragment stage only multiplies.
+ * Builds the {@link SectionGeometry} of one section: block quads with smooth lighting and ambient occlusion
+ * (see {@link VertexLighting}), face shading and biome tint, plus simple fluid surfaces. Quads that do not lie on a
+ * block face (plants, slabs) and all quads with smooth lighting disabled get flat lighting. Vertex colours are fully
+ * precomputed so the fragment stage only multiplies.
  *
  * <p>Instances hold scratch buffers and must not be shared between threads.</p>
  */
@@ -25,6 +28,11 @@ public final class SectionMesher {
     /** Directional shading per {@link Direction#ordinal()}: DOWN, UP, NORTH, SOUTH, WEST, EAST. */
     private static final float[] FACE_SHADE = {0.5f, 1.0f, 0.8f, 0.8f, 0.6f, 0.6f};
     private static final float MIN_LIGHT = 0.04f;
+    /**
+     * Debug aid, enabled with the JVM flag {@code -Dmsmp_vision.debug.sections=true}: tints chunk columns in an
+     * alternating red/blue checkerboard so that chunk borders and missing columns become visible in the screenshot.
+     */
+    private static final boolean DEBUG_SECTIONS = Boolean.getBoolean("msmp_vision.debug.sections");
     private static final float[] FLUID_UV_TOP = {0, 0, 0, 1, 1, 1, 1, 0};
 
     private final WorldSnapshot world;
@@ -38,6 +46,11 @@ public final class SectionMesher {
     private final int blend;
     private final float[] scratch = new float[12];
     private final float[] sideUv = new float[8];
+    private final boolean smoothLighting;
+    private final VertexLighting lighting;
+    private final float[] brightness = new float[4];
+    private final int[] vertexColors = new int[4];
+    private int debugTint = 0xFFFFFF;
 
     /**
      * Creates a mesher.
@@ -48,8 +61,9 @@ public final class SectionMesher {
      * @param tint Tint resolver.
      * @param camera Camera providing the coordinate origin.
      * @param biomeBlend Biome blend radius.
+     * @param smoothLighting Whether to blend light and darken corners (ambient occlusion) per vertex.
      */
-    public SectionMesher(WorldSnapshot world, BlockModelBaker baker, TextureStore textures, TintResolver tint, Camera camera, int biomeBlend) {
+    public SectionMesher(WorldSnapshot world, BlockModelBaker baker, TextureStore textures, TintResolver tint, Camera camera, int biomeBlend, boolean smoothLighting) {
         this.world = world;
         this.environment = world.environment();
         this.baker = baker;
@@ -59,6 +73,8 @@ public final class SectionMesher {
         this.originY = camera.originY();
         this.originZ = camera.originZ();
         this.blend = biomeBlend;
+        this.smoothLighting = smoothLighting;
+        this.lighting = new VertexLighting(new WorldSamples(world), this.environment.skyLightFactor(), MIN_LIGHT);
     }
 
     /**
@@ -70,6 +86,9 @@ public final class SectionMesher {
     public SectionGeometry mesh(SectionSnapshot section) {
         QuadBuffer opaque = new QuadBuffer();
         QuadBuffer translucent = new QuadBuffer();
+        if (DEBUG_SECTIONS) {
+            this.debugTint = ((section.sectionX() + section.sectionZ()) & 1) == 0 ? 0xFFA0A0 : 0xA0A0FF;
+        }
         int baseX = section.sectionX() << 4;
         int baseY = section.sectionY() << 4;
         int baseZ = section.sectionZ() << 4;
@@ -115,11 +134,25 @@ public final class SectionMesher {
                 continue;
             }
             Direction face = quad.face();
-            float light = this.light(x, y, z, face, solid);
             float shade = quad.shade() ? FACE_SHADE[face.ordinal()] : 1.0f;
-            int tintRgb = quad.tintIndex() >= 0 ? this.tint.blockTint(this.world, state, x, y, z, this.blend) : 0xFFFFFF;
-            int color = pack(shade * light, tintRgb);
-            (quad.translucent() ? translucent : opaque).add(quad.positions(), x - this.originX, y - this.originY, z - this.originZ, quad.uvs(), quad.texture(), color);
+            int tintRgb = multiply(quad.tintIndex() >= 0 ? this.tint.blockTint(this.world, state, x, y, z, this.blend) : 0xFFFFFF, this.debugTint);
+            QuadBuffer target = quad.translucent() ? translucent : opaque;
+            float offsetX = x - this.originX;
+            float offsetY = y - this.originY;
+            float offsetZ = z - this.originZ;
+
+            int axis = face.getAxis().ordinal();
+            int sign = face.getStepX() + face.getStepY() + face.getStepZ();
+            if (this.smoothLighting && VertexLighting.isFullFace(quad.positions(), axis, sign)) {
+                int rotate = this.lighting.compute(x, y, z, axis, sign, quad.positions(), shade, this.brightness);
+                for (int i = 0; i < 4; i++) {
+                    this.vertexColors[i] = pack(this.brightness[i], tintRgb);
+                }
+                target.add(quad.positions(), offsetX, offsetY, offsetZ, quad.uvs(), quad.texture(), this.vertexColors, rotate);
+            } else {
+                float light = this.light(x, y, z, face, solid);
+                target.add(quad.positions(), offsetX, offsetY, offsetZ, quad.uvs(), quad.texture(), pack(shade * light, tintRgb));
+            }
         }
     }
 
@@ -128,7 +161,7 @@ public final class SectionMesher {
         TextureData still = this.textures.get(water ? "minecraft:block/water_still" : "minecraft:block/lava_still");
         TextureData flow = this.textures.get(water ? "minecraft:block/water_flow" : "minecraft:block/lava_flow");
         QuadBuffer target = water ? translucent : opaque;
-        int tintRgb = water ? this.tint.waterTint(this.world, x, y, z, this.blend) : 0xFFFFFF;
+        int tintRgb = multiply(water ? this.tint.waterTint(this.world, x, y, z, this.blend) : 0xFFFFFF, this.debugTint);
         float light = water ? this.light(x, y, z, Direction.UP, false) : 1.0f;
 
         FluidState above = this.world.blockState(x, y + 1, z).getFluidState();
@@ -168,6 +201,58 @@ public final class SectionMesher {
         float block = this.world.blockLight(lx, ly, lz) / 15.0f;
         float level = Math.max(sky, block);
         return Math.max(level / (4.0f - 3.0f * level), MIN_LIGHT);
+    }
+
+    /** Adapts the captured world to the Minecraft-free {@link VertexLighting}; remembers the last looked-up block. */
+    private static final class WorldSamples implements VertexLighting.Samples {
+
+        private final WorldSnapshot world;
+        private int lastX;
+        private int lastY;
+        private int lastZ;
+        private BlockState last;
+
+        WorldSamples(WorldSnapshot world) {
+            this.world = world;
+        }
+
+        private BlockState state(int x, int y, int z) {
+            if (this.last == null || x != this.lastX || y != this.lastY || z != this.lastZ) {
+                this.last = this.world.blockState(x, y, z);
+                this.lastX = x;
+                this.lastY = y;
+                this.lastZ = z;
+            }
+            return this.last;
+        }
+
+        @Override
+        public boolean opaque(int x, int y, int z) {
+            return this.state(x, y, z).isSolidRender();
+        }
+
+        @Override
+        public boolean occluder(int x, int y, int z) {
+            BlockState state = this.state(x, y, z);
+            return state.isSolidRender() || state.is(BlockTags.LEAVES);
+        }
+
+        @Override
+        public int sky(int x, int y, int z) {
+            return this.world.skyLight(x, y, z);
+        }
+
+        @Override
+        public int block(int x, int y, int z) {
+            return this.world.blockLight(x, y, z);
+        }
+    }
+
+    private static int multiply(int a, int b) {
+        int r = ((a >> 16) & 0xFF) * ((b >> 16) & 0xFF) / 255;
+        int g = ((a >> 8) & 0xFF) * ((b >> 8) & 0xFF) / 255;
+        int bl = (a & 0xFF) * (b & 0xFF) / 255;
+        return (r << 16) | (g << 8) | bl;
     }
 
     private static int pack(float brightness, int tintRgb) {

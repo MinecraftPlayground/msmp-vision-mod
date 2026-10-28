@@ -183,10 +183,10 @@ public final class TileRasterizer {
                 if (alpha == 0) {
                     continue;
                 }
-                float lr = (float) (w0 * ar + w1 * br + w2 * cr);
-                float lg = (float) (w0 * ag + w1 * bg + w2 * cg);
-                float lb = (float) (w0 * ab + w1 * bb + w2 * cb);
-                float f = fog.factor(w);
+                float lr = (float) (w0 * ar + w1 * br + w2 * cr) * w;
+                float lg = (float) (w0 * ag + w1 * bg + w2 * cg) * w;
+                float lb = (float) (w0 * ab + w1 * bb + w2 * cb) * w;
+                float f = fog.factor(x, y, w);
                 int r = Math.min(255, (int) (((texel >> 16) & 0xFF) * lr * f + fog.r() * (1f - f)));
                 int g = Math.min(255, (int) (((texel >> 8) & 0xFF) * lg * f + fog.g() * (1f - f)));
                 int b = Math.min(255, (int) ((texel & 0xFF) * lb * f + fog.b() * (1f - f)));

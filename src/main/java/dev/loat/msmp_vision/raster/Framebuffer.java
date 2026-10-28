@@ -49,6 +49,10 @@ public final class Framebuffer {
         int outHeight = this.height / factor;
         BufferedImage image = new BufferedImage(outWidth, outHeight, BufferedImage.TYPE_INT_RGB);
         int[] target = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
+        if (factor == 1) {
+            System.arraycopy(this.color, 0, target, 0, target.length);
+            return image;
+        }
         int samples = factor * factor;
         for (int y = 0; y < outHeight; y++) {
             for (int x = 0; x < outWidth; x++) {

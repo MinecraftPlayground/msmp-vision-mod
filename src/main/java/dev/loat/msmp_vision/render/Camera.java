@@ -50,7 +50,7 @@ public final class Camera {
             (float) (settings.position().get(2) - this.originZ)
         );
         Matrix4f matrix = new Matrix4f()
-            .perspective((float) Math.toRadians(settings.fov()), this.aspect, 0.05f, settings.renderDistance() + 64f)
+            .perspective((float) Math.toRadians(settings.fov()), this.aspect, 0.05f, settings.renderDistanceBlocks() + 64f)
             .lookAt(eye, new Vector3f(eye).add(this.forward), new Vector3f(0, 1, 0));
         matrix.get(this.viewProjection);
         this.frustum = new FrustumIntersection(matrix);
@@ -96,5 +96,20 @@ public final class Camera {
         float minY = (sectionY << 4) - this.originY;
         float minZ = (sectionZ << 4) - this.originZ;
         return this.frustum.testAab(minX, minY, minZ, minX + 16, minY + 16, minZ + 16);
+    }
+
+    /**
+     * Tests whether a whole chunk column may be visible. Used to decide which chunks are worth loading.
+     *
+     * @param chunkX Chunk X.
+     * @param chunkZ Chunk Z.
+     * @param minY Lowest block Y of the world.
+     * @param maxY Highest block Y of the world, exclusive.
+     * @return {@code false} if the column is certainly outside the view frustum.
+     */
+    public boolean intersectsColumn(int chunkX, int chunkZ, int minY, int maxY) {
+        float minX = (chunkX << 4) - this.originX;
+        float minZ = (chunkZ << 4) - this.originZ;
+        return this.frustum.testAab(minX, minY - this.originY, minZ, minX + 16, maxY - this.originY, minZ + 16);
     }
 }

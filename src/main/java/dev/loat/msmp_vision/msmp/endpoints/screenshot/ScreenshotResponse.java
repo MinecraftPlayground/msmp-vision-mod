@@ -6,27 +6,38 @@ import net.minecraft.server.jsonrpc.api.Schema;
 
 
 /**
- * Result of the {@code msmp_vision:screenshot} method.
+ * Response payload for the {@code vision:screenshot} method.
  *
- * @param image Base64 encoded image data.
- * @param format Image format, currently always {@code png}.
- * @param width Image width in pixels.
- * @param height Image height in pixels.
- * @param renderTimeMs Total server-side time for the request in milliseconds.
+ * <p>Example JSON representation:</p>
+ * <pre><code>
+ * {
+ *   "image": "iVBORw0KGgoAAAANSUhEUg...",
+ *   "format": "png",
+ *   "width": 512,
+ *   "height": 288,
+ *   "render_time_ms": 412
+ * }
+ * </code></pre>
+ *
+ * @param image Base64 encoded image data (no data-URL prefix)
+ * @param format Image format, currently always {@code png}
+ * @param width Image width in pixels
+ * @param height Image height in pixels
+ * @param renderTimeMs Total server-side time for the request in milliseconds
  */
 public record ScreenshotResponse(String image, String format, int width, int height, int renderTimeMs) {
- 
+
     /**
      * Codec for serializing and deserializing {@link ScreenshotResponse} instances.
      */
-    public static final Codec<ScreenshotResponse> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+    public static final Codec<ScreenshotResponse> CODEC = RecordCodecBuilder.create(i -> i.group(
         Codec.STRING.fieldOf("image").forGetter(ScreenshotResponse::image),
         Codec.STRING.fieldOf("format").forGetter(ScreenshotResponse::format),
         Codec.INT.fieldOf("width").forGetter(ScreenshotResponse::width),
         Codec.INT.fieldOf("height").forGetter(ScreenshotResponse::height),
         Codec.INT.fieldOf("render_time_ms").forGetter(ScreenshotResponse::renderTimeMs)
-    ).apply(instance, ScreenshotResponse::new));
- 
+    ).apply(i, ScreenshotResponse::new));
+
     /**
      * MSMP schema for {@link ScreenshotResponse}, used for protocol discovery.
      */

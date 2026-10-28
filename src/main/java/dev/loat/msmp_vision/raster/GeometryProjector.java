@@ -59,10 +59,6 @@ public final class GeometryProjector {
     private boolean load(QuadBuffer quads, int q) {
         float[] pos = quads.positions();
         float[] uv = quads.uvs();
-        int color = quads.color(q);
-        float r = ((color >> 16) & 0xFF) / 255f;
-        float g = ((color >> 8) & 0xFF) / 255f;
-        float b = (color & 0xFF) / 255f;
 
         boolean left = true, right = true, below = true, above = true, behind = true;
         for (int v = 0; v < 4; v++) {
@@ -77,9 +73,10 @@ public final class GeometryProjector {
             c[2] = w;
             c[3] = uv[q * 8 + v * 2];
             c[4] = uv[q * 8 + v * 2 + 1];
-            c[5] = r;
-            c[6] = g;
-            c[7] = b;
+            int color = quads.color(q, v);
+            c[5] = ((color >> 16) & 0xFF) / 255f;
+            c[6] = ((color >> 8) & 0xFF) / 255f;
+            c[7] = (color & 0xFF) / 255f;
             if (x >= -w) left = false;
             if (x <= w) right = false;
             if (y >= -w) below = false;
@@ -106,9 +103,9 @@ public final class GeometryProjector {
             d[2] = invW;
             d[3] = s[3] * invW;
             d[4] = s[4] * invW;
-            d[5] = s[5];
-            d[6] = s[6];
-            d[7] = s[7];
+            d[5] = s[5] * invW;
+            d[6] = s[6] * invW;
+            d[7] = s[7] * invW;
         }
         for (int i = 1; i < n - 1; i++) {
             float[] p = this.screen[0];

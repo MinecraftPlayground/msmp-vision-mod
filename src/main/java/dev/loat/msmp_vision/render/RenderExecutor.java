@@ -20,10 +20,11 @@ public final class RenderExecutor {
     /**
      * Creates the pool.
      *
-     * @param configuredThreads Thread count, {@code 0} selects the number of available processors.
+     * @param configuredThreads Thread count, {@code 0} selects the number of available processors minus one (at least 1),
+     * so the server thread keeps a core.
      */
     public RenderExecutor(int configuredThreads) {
-        this.threads = configuredThreads > 0 ? configuredThreads : Math.max(1, Runtime.getRuntime().availableProcessors());
+        this.threads = configuredThreads > 0 ? configuredThreads : Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
         AtomicInteger counter = new AtomicInteger();
         this.pool = Executors.newFixedThreadPool(this.threads, runnable -> {
             Thread thread = new Thread(runnable, "msmp-vision-render-" + counter.incrementAndGet());

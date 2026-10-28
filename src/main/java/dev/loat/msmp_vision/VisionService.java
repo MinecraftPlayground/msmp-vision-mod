@@ -9,12 +9,13 @@ import dev.loat.msmp_vision.logging.Logger;
 import dev.loat.msmp_vision.mesh.TintResolver;
 import dev.loat.msmp_vision.msmp.endpoints.screenshot.ScreenshotRequest;
 import dev.loat.msmp_vision.msmp.endpoints.screenshot.ScreenshotResponse;
+import dev.loat.msmp_vision.msmp.exceptions.UnknownDimensionException;
 import dev.loat.msmp_vision.render.Camera;
 import dev.loat.msmp_vision.render.RenderExecutor;
 import dev.loat.msmp_vision.render.RenderSettings;
+import dev.loat.msmp_vision.render.Rendered;
 import dev.loat.msmp_vision.render.SceneRenderer;
-import dev.loat.msmp_vision.world.SnapshotCapture;
-import dev.loat.msmp_vision.world.WorldSnapshot;
+import dev.loat.msmp_vision.world.SnapshotSession;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -23,8 +24,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
-import java.awt.image.BufferedImage;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -52,7 +53,7 @@ public final class VisionService {
         Path root = FabricLoader.getInstance().getConfigDir().resolve("msmp/vision/client_assets");
         AssetManager assets = new AssetManager(root, FabricLoader.getInstance().getRawGameVersion());
         TextureStore textures = new TextureStore(assets);
-        RenderExecutor executor = new RenderExecutor(config.threads.render);
+        RenderExecutor executor = new RenderExecutor(config.render.threads);
         SceneRenderer renderer = new SceneRenderer(assets, textures, executor);
 
         CompletableFuture<Void> ready = assets.initialize().thenRun(() -> TintResolver.initializeColorMaps(assets));
@@ -81,7 +82,8 @@ public final class VisionService {
      * @param server The server.
      * @param request The request.
      * @return The response containing a Base64 PNG.
-     * @throws IllegalArgumentException for invalid parameters.
+     * @throws dev.loat.msmp_vision.msmp.exceptions.InvalidParamsException for invalid parameters.
+     * @throws UnknownDimensionException if the requested dimension does not exist.
      * @throws IllegalStateException if the renderer is not ready or rendering failed.
      */
     public ScreenshotResponse screenshot(MinecraftServer server, ScreenshotRequest request) {
@@ -102,21 +104,30 @@ public final class VisionService {
 
         long start = System.nanoTime();
         Camera camera = new Camera(settings);
-        WorldSnapshot snapshot = this.capture(server, level, camera, settings, config.requestTimeoutSeconds);
-        BufferedImage image = current.renderer().render(snapshot, camera, settings, config);
-        String encoded = ImageEncoder.toBase64Png(image);
-        int elapsed = (int) ((System.nanoTime() - start) / 1_000_000L);
+        SnapshotSession session = this.capture(server, level, camera, settings, config);
+        Rendered rendered = current.renderer().render(session.snapshot(), camera, settings, config);
+        long encodeStart = System.nanoTime();
+        String encoded = ImageEncoder.toBase64Png(rendered.image(), config.render.pngCompressionLevel);
+        long end = System.nanoTime();
 
-        return new ScreenshotResponse(encoded, "png", image.getWidth(), image.getHeight(), elapsed);
+        Logger.info("Screenshot timings: capture %d ms (server thread), mesh %d ms, sky %d ms, raster %d ms, downsample %d ms, encode %d ms, total %d ms."
+            .formatted(session.workNanos() / 1_000_000L, rendered.meshNanos() / 1_000_000L, rendered.skyNanos() / 1_000_000L,
+                rendered.tileNanos() / 1_000_000L, rendered.downsampleNanos() / 1_000_000L, (end - encodeStart) / 1_000_000L,
+                (end - start) / 1_000_000L));
+        return new ScreenshotResponse(encoded, "png", rendered.image().getWidth(), rendered.image().getHeight(), (int) ((end - start) / 1_000_000L));
     }
 
-    private WorldSnapshot capture(MinecraftServer server, ServerLevel level, Camera camera, RenderSettings settings, long timeoutSeconds) {
+    /**
+     * Captures the whole world at once on the server thread. MSMP handlers already run there, in which case the
+     * capture (including loading missing chunks) is done directly; otherwise it is scheduled on the server thread.
+     */
+    private SnapshotSession capture(MinecraftServer server, ServerLevel level, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
         if (server.isSameThread()) {
-            return SnapshotCapture.capture(level, camera, settings);
+            return captureAll(level, camera, settings, config);
         }
+        long timeoutSeconds = config.requestTimeoutSeconds + config.chunks.loadTimeoutSeconds;
         try {
-            return CompletableFuture.supplyAsync(() -> SnapshotCapture.capture(level, camera, settings), server)
-                .get(timeoutSeconds, TimeUnit.SECONDS);
+            return CompletableFuture.supplyAsync(() -> captureAll(level, camera, settings, config), server).get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             throw new IllegalStateException("The server thread did not respond in time.");
         } catch (ExecutionException e) {
@@ -127,14 +138,23 @@ public final class VisionService {
         }
     }
 
-    private ServerLevel resolveLevel(MinecraftServer server, String dimension) {
-        if (dimension == null || dimension.isBlank()) {
+    private static SnapshotSession captureAll(ServerLevel level, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
+        SnapshotSession session = new SnapshotSession(level, camera, settings, config.chunks);
+        session.step(Long.MAX_VALUE);
+        return session;
+    }
+
+    private ServerLevel resolveLevel(MinecraftServer server, Optional<String> dimension) {
+        if (dimension.isEmpty()) {
             return server.overworld();
         }
-        ResourceKey<Level> key = ResourceKey.create(Registries.DIMENSION, Identifier.parse(dimension));
-        ServerLevel level = server.getLevel(key);
+        Identifier identifier = Identifier.tryParse(dimension.get());
+        if (identifier == null) {
+            throw new UnknownDimensionException(dimension.get());
+        }
+        ServerLevel level = server.getLevel(ResourceKey.<Level>create(Registries.DIMENSION, identifier));
         if (level == null) {
-            throw new IllegalArgumentException("Unknown dimension: " + dimension);
+            throw new UnknownDimensionException(dimension.get());
         }
         return level;
     }
