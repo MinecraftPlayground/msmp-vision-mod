@@ -30,7 +30,8 @@ import java.util.Optional;
  *   "fov": 70.0,
  *   "render_distance": 64,
  *   "ssaa": 2,
- *   "biome_blend": 1
+ *   "biome_blend": 1,
+ *   "brightness": 0.5
  * }
  * </code></pre>
  *
@@ -43,6 +44,7 @@ import java.util.Optional;
  * @param renderDistance The render distance in blocks, if provided
  * @param ssaa The supersampling factor (1 = off), if provided
  * @param biomeBlend The biome tint blend radius in blocks (0 = off), if provided
+ * @param brightness The brightness like in Minecraft's video settings (0 = Moody, 0.5 = default, 1 = Bright), if provided
  */
 public record ScreenshotRequest(
     Optional<String> dimension,
@@ -53,7 +55,8 @@ public record ScreenshotRequest(
     Optional<Double> fov,
     Optional<Integer> renderDistance,
     Optional<Integer> ssaa,
-    Optional<Integer> biomeBlend
+    Optional<Integer> biomeBlend,
+    Optional<Double> brightness
 ) {
 
     private static final Schema<List<Double>> POSITION_SCHEMA =
@@ -74,7 +77,8 @@ public record ScreenshotRequest(
         Codec.DOUBLE.optionalFieldOf("fov").forGetter(ScreenshotRequest::fov),
         Codec.INT.optionalFieldOf("render_distance").forGetter(ScreenshotRequest::renderDistance),
         Codec.INT.optionalFieldOf("ssaa").forGetter(ScreenshotRequest::ssaa),
-        Codec.INT.optionalFieldOf("biome_blend").forGetter(ScreenshotRequest::biomeBlend)
+        Codec.INT.optionalFieldOf("biome_blend").forGetter(ScreenshotRequest::biomeBlend),
+        Codec.DOUBLE.optionalFieldOf("brightness").forGetter(ScreenshotRequest::brightness)
     ).apply(i, ScreenshotRequest::new));
 
     /**
@@ -89,5 +93,6 @@ public record ScreenshotRequest(
         .withField("fov", Schema.NUMBER_SCHEMA)
         .withField("render_distance", Schema.INT_SCHEMA)
         .withField("ssaa", Schema.INT_SCHEMA)
-        .withField("biome_blend", Schema.INT_SCHEMA);
+        .withField("biome_blend", Schema.INT_SCHEMA)
+        .withField("brightness", Schema.NUMBER_SCHEMA);
 }

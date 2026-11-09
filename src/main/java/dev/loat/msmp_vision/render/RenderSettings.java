@@ -22,6 +22,7 @@ import dev.loat.msmp_vision.msmp.exceptions.InvalidParamsException;
  * @param renderDistance Render distance in chunks (1 chunk = 16 blocks), like in Minecraft's video settings.
  * @param ssaa Supersampling factor (1 = off).
  * @param biomeBlend Biome tint blend radius in blocks.
+ * @param brightness Brightness like in Minecraft's video settings, 0 (Moody) to 1 (Bright).
  */
 public record RenderSettings(
     List<Double> position,
@@ -32,7 +33,8 @@ public record RenderSettings(
     double fov,
     int renderDistance,
     int ssaa,
-    int biomeBlend
+    int biomeBlend,
+    double brightness
 ) {
 
     /** Pitch is clamped slightly below +-90 degrees so the camera's up vector never degenerates. */
@@ -65,12 +67,14 @@ public record RenderSettings(
         int distance = request.renderDistance().orElse(defaultsConfig.renderDistanceChunks);
         int ssaa = request.ssaa().orElse(defaultsConfig.ssaa);
         int blend = request.biomeBlend().orElse(defaultsConfig.biomeBlend);
+        double brightness = request.brightness().orElse(defaultsConfig.brightness);
 
         require(width > 0, "'width' must be positive");
         require(height > 0, "'height' must be positive");
         require(distance > 0, "'render_distance' must be positive");
         require(ssaa > 0, "'ssaa' must be positive");
         require(blend >= 0, "'biome_blend' must not be negative");
+        require(Double.isFinite(brightness) && brightness >= 0 && brightness <= 1, "'brightness' must be between 0 and 1");
 
         require(width <= limitsConfig.maxWidth, "'width' exceeds the limit of " + limitsConfig.maxWidth);
         require(height <= limitsConfig.maxHeight, "'height' exceeds the limit of " + limitsConfig.maxHeight);
@@ -88,7 +92,8 @@ public record RenderSettings(
             fov,
             distance,
             ssaa,
-            Math.min(blend, 4)
+            Math.min(blend, 4),
+            brightness
         );
     }
 

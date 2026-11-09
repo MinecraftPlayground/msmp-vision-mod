@@ -16,11 +16,11 @@ import java.util.concurrent.CompletableFuture;
  */
 public final class SkyPainter {
 
-    /** Distance of the horizon haze: sky blends from fog colour to sky colour over this much of {@code dir.y}. */
-    private static final float HAZE_HEIGHT = 0.45f;
-    /** Half edge length of the sun / moon quad, as {@code tan(angle)}; vanilla uses a 30 unit quad at 100 units. */
-    private static final float SUN_HALF = 0.15f;
-    private static final float MOON_HALF = 0.10f;
+    /** Half edge length of the visible sun, as {@code tan(angle)}; measured on a client screenshot. */
+    private static final float SUN_HALF = 0.075f;
+    private static final float MOON_HALF = 0.05f;
+    /** Cosine of the angle beyond which the glow around the sun is zero. */
+    private static final float GLOW_COS = (float) Math.cos(Math.toRadians(SkyColors.GLOW_RADIUS_DEGREES));
 
     /** Rows per parallel job. */
     private static final int BAND_ROWS = 32;
@@ -45,6 +45,7 @@ public final class SkyPainter {
         double angle = environment.sunAngleRadians();
         Vector3f sun = new Vector3f((float) -Math.sin(angle), (float) Math.cos(angle), 0).normalize();
         Vector3f tangent = new Vector3f((float) Math.cos(angle), (float) Math.sin(angle), 0);
+        float glowScale = environment.skyLightFactor();
 
         int height = target.height();
         List<CompletableFuture<Void>> jobs = new ArrayList<>();
@@ -52,13 +53,13 @@ public final class SkyPainter {
             int start = from;
             int end = Math.min(height, from + BAND_ROWS);
             jobs.add(CompletableFuture.runAsync(
-                () -> paintRows(target, camera, horizon, zenith, sun, tangent, start, end), executor.executor()));
+                () -> paintRows(target, camera, horizon, zenith, sun, tangent, glowScale, start, end), executor.executor()));
         }
         executor.awaitAll(jobs, timeoutSeconds);
     }
 
     private static void paintRows(Framebuffer target, Camera camera, float[] horizon, float[] zenith,
-                                  Vector3f sun, Vector3f tangent, int fromRow, int toRow) {
+                                  Vector3f sun, Vector3f tangent, float glowScale, int fromRow, int toRow) {
         int width = target.width();
         int height = target.height();
         int[] color = target.color();
@@ -72,13 +73,20 @@ public final class SkyPainter {
                     .fma(ndcY * camera.tanHalfFov(), camera.up())
                     .normalize();
 
-                float t = smoothstep(Math.max(dir.y, 0f) / HAZE_HEIGHT);
+                float t = SkyColors.blendBySine(dir.y);
                 float r = horizon[0] + (zenith[0] - horizon[0]) * t;
                 float g = horizon[1] + (zenith[1] - horizon[1]) * t;
                 float b = horizon[2] + (zenith[2] - horizon[2]) * t;
 
+                float d = dir.dot(sun);
+                if (d > GLOW_COS) {
+                    float glow = SkyColors.glow((float) Math.toDegrees(Math.acos(Math.min(1f, d)))) * glowScale;
+                    r += glow;
+                    g += glow;
+                    b += glow;
+                }
+
                 if (dir.y > -0.02f) {
-                    float d = dir.dot(sun);
                     if (d > 0.01f && inQuad(dir, tangent, d, SUN_HALF)) {
                         r = 255; g = 255; b = 255;
                     } else if (d < -0.01f && inQuad(dir, tangent, -d, MOON_HALF)) {
@@ -95,11 +103,6 @@ public final class SkyPainter {
         float u = dir.dot(tangent) / axisDot;
         float v = dir.z / axisDot;
         return Math.abs(u) < half && Math.abs(v) < half;
-    }
-
-    private static float smoothstep(float x) {
-        float t = Math.max(0f, Math.min(1f, x));
-        return t * t * (3f - 2f * t);
     }
 
     private static float[] rgb(int packed) {

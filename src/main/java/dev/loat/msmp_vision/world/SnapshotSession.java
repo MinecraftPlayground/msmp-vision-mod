@@ -4,6 +4,7 @@ import dev.loat.msmp_vision.config.files.chunks.ChunksConfig;
 import dev.loat.msmp_vision.logging.Logger;
 import dev.loat.msmp_vision.render.Camera;
 import dev.loat.msmp_vision.render.RenderSettings;
+import dev.loat.msmp_vision.render.SkyColors;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
@@ -79,8 +80,11 @@ public final class SnapshotSession {
         this.environment = new EnvironmentSnapshot(
             level.environmentAttributes().getValue(EnvironmentAttributes.SUN_ANGLE, position) * Mth.DEG_TO_RAD,
             level.environmentAttributes().getValue(EnvironmentAttributes.SKY_LIGHT_FACTOR, position),
-            toRgb(level.environmentAttributes().getValue(EnvironmentAttributes.FOG_COLOR, position), FALLBACK_FOG),
-            toRgb(level.environmentAttributes().getValue(EnvironmentAttributes.SKY_COLOR, position), FALLBACK_SKY),
+            SkyColors.horizon(
+                toRgb(level.environmentAttributes().getValue(EnvironmentAttributes.FOG_COLOR, position), FALLBACK_FOG),
+                toRgb(level.environmentAttributes().getValue(EnvironmentAttributes.SKY_COLOR, position), FALLBACK_SKY)
+            ),
+            SkyColors.zenith(toRgb(level.environmentAttributes().getValue(EnvironmentAttributes.SKY_COLOR, position), FALLBACK_SKY)),
             level.dimensionType().hasSkyLight()
         );
         this.snapshot = new WorldSnapshot(this.environment);

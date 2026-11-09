@@ -6,6 +6,8 @@ import com.google.gson.JsonObject;
 import dev.loat.msmp_vision.assets.TextureData;
 import dev.loat.msmp_vision.assets.TextureStore;
 import dev.loat.msmp_vision.model.BlockStateSelector.ModelVariant;
+import dev.loat.msmp_vision.model.BlockStateSelector.Part;
+import dev.loat.msmp_vision.model.BlockStateSelector.WeightedVariant;
 import dev.loat.msmp_vision.model.ModelResolver.ResolvedModel;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
@@ -16,6 +18,7 @@ import org.joml.Vector3f;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -31,7 +34,7 @@ public final class BlockModelBaker {
     private final BlockStateSelector selector;
     private final ModelResolver models;
     private final TextureStore textures;
-    private final ConcurrentHashMap<BlockState, List<BakedQuad>> cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<BlockState, BakedState> cache = new ConcurrentHashMap<>();
 
     /**
      * Creates a baker.
@@ -46,29 +49,86 @@ public final class BlockModelBaker {
         this.textures = textures;
     }
 
-    /**
-     * Returns the quads of a block state.
-     *
-     * @param state The block state.
-     * @return An immutable quad list, possibly empty.
-     */
-    public List<BakedQuad> bake(BlockState state) {
-        return this.cache.computeIfAbsent(state, this::bakeUncached);
+    /** One blockstate part with all its variants baked. */
+    private record BakedPart(int[] weights, int totalWeight, List<List<BakedQuad>> variants) {
+
+        List<BakedQuad> pick(Random random) {
+            if (this.variants.size() == 1) {
+                return this.variants.get(0);
+            }
+            return this.variants.get(WeightedChoice.index(this.weights, random.nextInt(this.totalWeight)));
+        }
     }
 
-    private List<BakedQuad> bakeUncached(BlockState state) {
+    /**
+     * @param parts All parts of the block state.
+     * @param fixed All quads if no part has more than one variant (the common case), otherwise {@code null}.
+     */
+    private record BakedState(List<BakedPart> parts, List<BakedQuad> fixed) {}
+
+    /**
+     * Returns the quads of a block state at a position. If the blockstate offers several weighted variants
+     * (random rotations of sand, stone, grass blocks, ...), one is picked from the position's seed, so the same
+     * block always looks the same but neighbouring blocks differ.
+     *
+     * @param state The block state.
+     * @param seed Seed of the block position, see {@link BlockRandom#seed(int, int, int)}.
+     * @return An immutable quad list, possibly empty.
+     */
+    public List<BakedQuad> bake(BlockState state, long seed) {
+        BakedState baked = this.cache.computeIfAbsent(state, this::bakeState);
+        if (baked.fixed() != null) {
+            return baked.fixed();
+        }
+        Random random = new Random(seed);
+        if (baked.parts().size() == 1) {
+            return baked.parts().get(0).pick(random);
+        }
         List<BakedQuad> quads = new ArrayList<>();
-        for (ModelVariant variant : this.selector.select(state)) {
-            ResolvedModel model = this.models.resolve(variant.model());
-            JsonArray elements = model.elements();
-            if (elements == null) {
-                continue;
+        for (BakedPart part : baked.parts()) {
+            quads.addAll(part.pick(random));
+        }
+        return quads;
+    }
+
+    private BakedState bakeState(BlockState state) {
+        List<BakedPart> parts = new ArrayList<>();
+        boolean random = false;
+        for (Part part : this.selector.select(state)) {
+            int count = part.variants().size();
+            int[] weights = new int[count];
+            List<List<BakedQuad>> variants = new ArrayList<>(count);
+            int total = 0;
+            for (int i = 0; i < count; i++) {
+                WeightedVariant weighted = part.variants().get(i);
+                weights[i] = weighted.weight();
+                total += weighted.weight();
+                variants.add(this.bakeVariant(weighted.variant()));
             }
-            Quaternionf rotation = variant.x() == 0 && variant.y() == 0 ? null
-                : new Quaternionf().rotationYXZ(-(float) Math.toRadians(variant.y()), -(float) Math.toRadians(variant.x()), 0f);
-            for (JsonElement element : elements) {
-                this.bakeElement(element.getAsJsonObject(), model, rotation, quads);
-            }
+            random |= count > 1;
+            parts.add(new BakedPart(weights, total, variants));
+        }
+        if (random) {
+            return new BakedState(List.copyOf(parts), null);
+        }
+        List<BakedQuad> all = new ArrayList<>();
+        for (BakedPart part : parts) {
+            all.addAll(part.variants().get(0));
+        }
+        return new BakedState(List.copyOf(parts), List.copyOf(all));
+    }
+
+    private List<BakedQuad> bakeVariant(ModelVariant variant) {
+        List<BakedQuad> quads = new ArrayList<>();
+        ResolvedModel model = this.models.resolve(variant.model());
+        JsonArray elements = model.elements();
+        if (elements == null) {
+            return List.of();
+        }
+        Quaternionf rotation = variant.x() == 0 && variant.y() == 0 ? null
+            : new Quaternionf().rotationYXZ(-(float) Math.toRadians(variant.y()), -(float) Math.toRadians(variant.x()), 0f);
+        for (JsonElement element : elements) {
+            this.bakeElement(element.getAsJsonObject(), model, rotation, quads);
         }
         return List.copyOf(quads);
     }

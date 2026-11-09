@@ -56,7 +56,7 @@ public final class VertexLighting {
 
     private final Samples samples;
     private final float skyLightFactor;
-    private final float minLight;
+    private final float gamma;
     private final int[] sideU = new int[3];
     private final int[] sideV = new int[3];
     private final int[] corner = new int[3];
@@ -66,12 +66,12 @@ public final class VertexLighting {
      *
      * @param samples The world.
      * @param skyLightFactor Sky light multiplier, 0 (night) to 1 (day).
-     * @param minLight Brightness floor, so that fully dark places do not become pitch black.
+     * @param gamma Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
      */
-    public VertexLighting(Samples samples, float skyLightFactor, float minLight) {
+    public VertexLighting(Samples samples, float skyLightFactor, float gamma) {
         this.samples = samples;
         this.skyLightFactor = skyLightFactor;
-        this.minLight = minLight;
+        this.gamma = Math.max(0f, Math.min(1f, gamma));
     }
 
     /**
@@ -162,15 +162,20 @@ public final class VertexLighting {
     }
 
     /**
-     * Brightness for a light level, using Minecraft's light curve.
+     * Brightness for a light level, like Minecraft's lightmap: the light curve is blended towards
+     * {@code 1 - (1 - x)^4} by the brightness option, and a constant ambient term is mixed in.
      *
      * @param sky Sky light 0-15.
      * @param block Block light 0-15.
-     * @return Brightness 0..1, at least the configured floor.
+     * @return Brightness 0.03 .. 0.99.
      */
     public float brightness(float sky, float block) {
         float level = Math.max(sky / 15f * this.skyLightFactor, block / 15f);
-        return Math.max(level / (4f - 3f * level), this.minLight);
+        float curved = level / (4f - 3f * level);
+        float inverse = 1f - curved;
+        float bright = 1f - inverse * inverse * inverse * inverse;
+        float value = curved + (bright - curved) * this.gamma;
+        return value * 0.96f + 0.03f;
     }
 
     private float shade(int[] p) {

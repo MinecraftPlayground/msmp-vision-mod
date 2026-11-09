@@ -30,6 +30,21 @@ public final class BlockStateSelector {
      */
     public record ModelVariant(String model, int x, int y, boolean uvlock) {}
 
+    /**
+     * A model variant together with its weight.
+     *
+     * @param variant The variant.
+     * @param weight Relative probability, at least 1.
+     */
+    public record WeightedVariant(ModelVariant variant, int weight) {}
+
+    /**
+     * One entry of a blockstate file: a list of variants of which one is picked per block position.
+     *
+     * @param variants The weighted variants, never empty.
+     */
+    public record Part(List<WeightedVariant> variants) {}
+
     private final AssetManager assets;
     private final ConcurrentHashMap<String, Optional<JsonObject>> cache = new ConcurrentHashMap<>();
 
@@ -48,7 +63,7 @@ public final class BlockStateSelector {
      * @param state The block state.
      * @return The selected model variants, empty if the block has no definition.
      */
-    public List<ModelVariant> select(BlockState state) {
+    public List<Part> select(BlockState state) {
         String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         JsonObject definition = this.definition(blockId);
         if (definition == null) {
@@ -57,17 +72,17 @@ public final class BlockStateSelector {
         if (definition.has("variants")) {
             for (Map.Entry<String, JsonElement> entry : definition.getAsJsonObject("variants").entrySet()) {
                 if (matchesKey(state, entry.getKey())) {
-                    return List.of(parseVariant(entry.getValue()));
+                    return List.of(parsePart(entry.getValue()));
                 }
             }
             return List.of();
         }
-        List<ModelVariant> result = new ArrayList<>();
+        List<Part> result = new ArrayList<>();
         if (definition.has("multipart")) {
             for (JsonElement part : definition.getAsJsonArray("multipart")) {
                 JsonObject object = part.getAsJsonObject();
                 if (!object.has("when") || testCondition(state, object.getAsJsonObject("when"))) {
-                    result.add(parseVariant(object.get("apply")));
+                    result.add(parsePart(object.get("apply")));
                 }
             }
         }
@@ -81,6 +96,20 @@ public final class BlockStateSelector {
             this.cache.put(blockId, cached);
         }
         return cached.orElse(null);
+    }
+
+    private static Part parsePart(JsonElement element) {
+        List<WeightedVariant> variants = new ArrayList<>();
+        if (element.isJsonArray()) {
+            for (JsonElement entry : element.getAsJsonArray()) {
+                JsonObject object = entry.getAsJsonObject();
+                int weight = object.has("weight") ? Math.max(1, object.get("weight").getAsInt()) : 1;
+                variants.add(new WeightedVariant(parseVariant(object), weight));
+            }
+        } else {
+            variants.add(new WeightedVariant(parseVariant(element), 1));
+        }
+        return new Part(variants);
     }
 
     private static ModelVariant parseVariant(JsonElement element) {

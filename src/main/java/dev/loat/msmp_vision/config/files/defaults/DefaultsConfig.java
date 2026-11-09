@@ -24,4 +24,7 @@ public class DefaultsConfig {
     @Annotation.Comment("Biome tint blend radius in blocks (0 = off).")
     @Annotation.Key("biome-blend")
     public int biomeBlend = 1;
+
+    @Annotation.Comment("Brightness like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.")
+    public double brightness = 0.5;
 }

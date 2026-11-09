@@ -3,17 +3,20 @@ package dev.loat.msmp_vision.mesh;
 import dev.loat.msmp_vision.assets.TextureData;
 import dev.loat.msmp_vision.assets.TextureStore;
 import dev.loat.msmp_vision.model.BakedQuad;
+import dev.loat.msmp_vision.model.BlockRandom;
 import dev.loat.msmp_vision.model.BlockModelBaker;
 import dev.loat.msmp_vision.model.FaceGeometry;
 import dev.loat.msmp_vision.render.Camera;
 import dev.loat.msmp_vision.world.EnvironmentSnapshot;
 import dev.loat.msmp_vision.world.SectionSnapshot;
 import dev.loat.msmp_vision.world.WorldSnapshot;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Builds the {@link SectionGeometry} of one section: block quads with smooth lighting and ambient occlusion
@@ -27,7 +30,6 @@ public final class SectionMesher {
 
     /** Directional shading per {@link Direction#ordinal()}: DOWN, UP, NORTH, SOUTH, WEST, EAST. */
     private static final float[] FACE_SHADE = {0.5f, 1.0f, 0.8f, 0.8f, 0.6f, 0.6f};
-    private static final float MIN_LIGHT = 0.04f;
     /**
      * Debug aid, enabled with the JVM flag {@code -Dmsmp_vision.debug.sections=true}: tints chunk columns in an
      * alternating red/blue checkerboard so that chunk borders and missing columns become visible in the screenshot.
@@ -62,8 +64,9 @@ public final class SectionMesher {
      * @param camera Camera providing the coordinate origin.
      * @param biomeBlend Biome blend radius.
      * @param smoothLighting Whether to blend light and darken corners (ambient occlusion) per vertex.
+     * @param brightness Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
      */
-    public SectionMesher(WorldSnapshot world, BlockModelBaker baker, TextureStore textures, TintResolver tint, Camera camera, int biomeBlend, boolean smoothLighting) {
+    public SectionMesher(WorldSnapshot world, BlockModelBaker baker, TextureStore textures, TintResolver tint, Camera camera, int biomeBlend, boolean smoothLighting, float brightness) {
         this.world = world;
         this.environment = world.environment();
         this.baker = baker;
@@ -74,7 +77,7 @@ public final class SectionMesher {
         this.originZ = camera.originZ();
         this.blend = biomeBlend;
         this.smoothLighting = smoothLighting;
-        this.lighting = new VertexLighting(new WorldSamples(world), this.environment.skyLightFactor(), MIN_LIGHT);
+        this.lighting = new VertexLighting(new WorldSamples(world), this.environment.skyLightFactor(), brightness);
     }
 
     /**
@@ -128,7 +131,16 @@ public final class SectionMesher {
     }
 
     private void meshBlock(BlockState state, boolean solid, int x, int y, int z, QuadBuffer opaque, QuadBuffer translucent) {
-        for (BakedQuad quad : this.baker.bake(state)) {
+        float baseX = x - this.originX;
+        float baseY = y - this.originY;
+        float baseZ = z - this.originZ;
+        if (state.hasOffsetFunction()) {
+            Vec3 offset = state.getOffset(new BlockPos(x, y, z));
+            baseX += (float) offset.x();
+            baseY += (float) offset.y();
+            baseZ += (float) offset.z();
+        }
+        for (BakedQuad quad : this.baker.bake(state, BlockRandom.seed(x, y, z))) {
             Direction cull = quad.cullFace();
             if (cull != null && this.world.blockState(x + cull.getStepX(), y + cull.getStepY(), z + cull.getStepZ()).isSolidRender()) {
                 continue;
@@ -137,9 +149,9 @@ public final class SectionMesher {
             float shade = quad.shade() ? FACE_SHADE[face.ordinal()] : 1.0f;
             int tintRgb = multiply(quad.tintIndex() >= 0 ? this.tint.blockTint(this.world, state, x, y, z, this.blend) : 0xFFFFFF, this.debugTint);
             QuadBuffer target = quad.translucent() ? translucent : opaque;
-            float offsetX = x - this.originX;
-            float offsetY = y - this.originY;
-            float offsetZ = z - this.originZ;
+            float offsetX = baseX;
+            float offsetY = baseY;
+            float offsetZ = baseZ;
 
             int axis = face.getAxis().ordinal();
             int sign = face.getStepX() + face.getStepY() + face.getStepZ();
@@ -162,7 +174,7 @@ public final class SectionMesher {
         TextureData flow = this.textures.get(water ? "minecraft:block/water_flow" : "minecraft:block/lava_flow");
         QuadBuffer target = water ? translucent : opaque;
         int tintRgb = multiply(water ? this.tint.waterTint(this.world, x, y, z, this.blend) : 0xFFFFFF, this.debugTint);
-        float light = water ? this.light(x, y, z, Direction.UP, false) : 1.0f;
+        float light = water ? this.fluidLight(x, y, z) : 1.0f;
 
         FluidState above = this.world.blockState(x, y + 1, z).getFluidState();
         boolean covered = !above.isEmpty() && above.getType().isSame(fluid.getType());
@@ -187,7 +199,7 @@ public final class SectionMesher {
             this.sideUv[4] = 0.5f; this.sideUv[5] = 0.5f;
             this.sideUv[6] = 0.5f; this.sideUv[7] = v0;
             FaceGeometry.fill(this.scratch, side, 0, 0, 0, 1, height, 1);
-            float sideLight = water ? this.light(x + side.getStepX(), y, z + side.getStepZ(), side, false) : 1.0f;
+            float sideLight = light;
             target.add(this.scratch, rx, ry, rz, this.sideUv, flow.id(), pack(sideLight * FACE_SHADE[side.ordinal()], tintRgb));
         }
     }
@@ -197,10 +209,14 @@ public final class SectionMesher {
         int lx = solid ? x + face.getStepX() : x;
         int ly = solid ? y + face.getStepY() : y;
         int lz = solid ? z + face.getStepZ() : z;
-        float sky = this.world.skyLight(lx, ly, lz) / 15.0f * this.environment.skyLightFactor();
-        float block = this.world.blockLight(lx, ly, lz) / 15.0f;
-        float level = Math.max(sky, block);
-        return Math.max(level / (4.0f - 3.0f * level), MIN_LIGHT);
+        return this.lighting.brightness(this.world.skyLight(lx, ly, lz), this.world.blockLight(lx, ly, lz));
+    }
+
+    /** Fluids use the brighter of their own light and the light of the block above, for every face. */
+    private float fluidLight(int x, int y, int z) {
+        float sky = Math.max(this.world.skyLight(x, y, z), this.world.skyLight(x, y + 1, z));
+        float block = Math.max(this.world.blockLight(x, y, z), this.world.blockLight(x, y + 1, z));
+        return this.lighting.brightness(sky, block);
     }
 
     /** Adapts the captured world to the Minecraft-free {@link VertexLighting}; remembers the last looked-up block. */
