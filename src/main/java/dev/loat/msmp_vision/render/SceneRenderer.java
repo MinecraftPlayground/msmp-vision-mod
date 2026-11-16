@@ -4,6 +4,7 @@ import dev.loat.msmp_vision.assets.AssetManager;
 import dev.loat.msmp_vision.assets.TextureData;
 import dev.loat.msmp_vision.assets.TextureStore;
 import dev.loat.msmp_vision.config.files.MSMPVisionConfigFile;
+import dev.loat.msmp_vision.mesh.QuadBuffer;
 import dev.loat.msmp_vision.mesh.SectionGeometry;
 import dev.loat.msmp_vision.mesh.SectionMesher;
 import dev.loat.msmp_vision.mesh.TintResolver;
@@ -15,6 +16,7 @@ import dev.loat.msmp_vision.raster.Framebuffer;
 import dev.loat.msmp_vision.raster.GeometryProjector;
 import dev.loat.msmp_vision.raster.TileRasterizer;
 import dev.loat.msmp_vision.raster.TriangleBuffer;
+import dev.loat.msmp_vision.world.EnvironmentSnapshot;
 import dev.loat.msmp_vision.world.SectionSnapshot;
 import dev.loat.msmp_vision.world.WorldSnapshot;
 
@@ -34,6 +36,7 @@ public final class SceneRenderer {
     private final TextureStore textures;
     private final RenderExecutor executor;
     private final BlockModelBaker baker;
+    private final CloudMask cloudMask;
     private final TintResolver tint = new TintResolver();
 
     /**
@@ -47,6 +50,7 @@ public final class SceneRenderer {
         this.textures = textures;
         this.executor = executor;
         this.baker = new BlockModelBaker(new BlockStateSelector(assets), new ModelResolver(assets), textures);
+        this.cloudMask = new CloudMask(assets);
     }
 
     /**
@@ -95,12 +99,36 @@ public final class SceneRenderer {
         float fogEnd = settings.renderDistanceBlocks();
         Fog fog = Fog.of((float) (fogEnd * config.render.fogStartFactor), fogEnd, world.environment().fogColor(),
             camera.tanHalfFov(), camera.aspect(), width, height);
+        TriangleBuffer clouds = this.cloudTriangles(world.environment(), camera, settings, config, width, height, cull);
+        float cloudEnd = (float) config.clouds.distance;
+        Fog cloudFog = Fog.of(cloudEnd * 0.4f, cloudEnd, world.environment().fogColor(),
+            camera.tanHalfFov(), camera.aspect(), width, height);
         new TileRasterizer(this.executor, config.render.tileSize, timeout)
-            .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), framebuffer, this.texturesById(), fog);
+            .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), clouds, framebuffer, this.texturesById(), fog, cloudFog);
         long tilesDone = System.nanoTime();
         BufferedImage image = framebuffer.toImage(settings.ssaa());
         long doneNanos = System.nanoTime();
         return new Rendered(image, meshedNanos - startNanos, skyDone - skyStart, tilesDone - skyDone, doneNanos - tilesDone);
+    }
+
+    /** Builds the cloud layer as screen-space triangles; empty if clouds are off, not available or the dimension has none. */
+    private TriangleBuffer cloudTriangles(EnvironmentSnapshot environment, Camera camera, RenderSettings settings,
+                                          MSMPVisionConfigFile config, int width, int height, boolean cull) {
+        if (!config.clouds.enabled || !environment.clouds()) {
+            return new TriangleBuffer();
+        }
+        CloudMask.Mask mask = this.cloudMask.get();
+        if (mask == null) {
+            return new TriangleBuffer();
+        }
+        TextureData texture = this.textures.solid("cloud", 0xCCFFFFFF);
+        float brightness = 0.9f * environment.skyLightFactor() + 0.1f;
+        QuadBuffer quads = new QuadBuffer();
+        CloudGeometry.build(quads, texture.id(), mask.cells(), mask.width(), mask.height(),
+            settings.position().get(0), settings.position().get(1), settings.position().get(2),
+            camera.originX(), camera.originY(), camera.originZ(),
+            environment.gameTime() * CloudGeometry.SPEED, config.clouds.height, config.clouds.distance, brightness);
+        return new GeometryProjector(camera.viewProjection(), width, height, cull).project(quads);
     }
 
     private TextureData[] texturesById() {

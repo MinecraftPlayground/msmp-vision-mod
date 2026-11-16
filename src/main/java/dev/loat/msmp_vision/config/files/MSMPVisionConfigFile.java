@@ -2,6 +2,7 @@ package dev.loat.msmp_vision.config.files;
 
 import dev.loat.config_lib.annotation.Annotation;
 import dev.loat.msmp_vision.config.files.chunks.ChunksConfig;
+import dev.loat.msmp_vision.config.files.clouds.CloudsConfig;
 import dev.loat.msmp_vision.config.files.defaults.DefaultsConfig;
 import dev.loat.msmp_vision.config.files.limits.LimitsConfig;
 import dev.loat.msmp_vision.config.files.render.RenderConfig;
@@ -25,6 +26,9 @@ public class MSMPVisionConfigFile {
 
     @Annotation.Comment("Settings for chunks that are not loaded when a screenshot is requested.")
     public ChunksConfig chunks = new ChunksConfig();
+
+    @Annotation.Comment("Settings of the cloud layer.")
+    public CloudsConfig clouds = new CloudsConfig();
 
     @Annotation.Comment("Maximum time in seconds a single screenshot request may take (without chunk loading).")
     @Annotation.Key("request-timeout-seconds")

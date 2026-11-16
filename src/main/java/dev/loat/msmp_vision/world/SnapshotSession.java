@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.attribute.EnvironmentAttributes;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.DataLayer;
@@ -48,6 +49,7 @@ public final class SnapshotSession {
     private final Camera camera;
     private final RenderSettings settings;
     private final ChunksConfig chunks;
+    private final ChunkKeeper keeper;
     private final WorldSnapshot snapshot;
     private final EnvironmentSnapshot environment;
     private final List<Column> columns;
@@ -69,12 +71,14 @@ public final class SnapshotSession {
      * @param camera The camera used for frustum culling.
      * @param settings The render settings.
      * @param chunks The chunk loading configuration.
+     * @param keeper Keeps the captured chunks loaded for a while, or {@code null}.
      */
-    public SnapshotSession(ServerLevel level, Camera camera, RenderSettings settings, ChunksConfig chunks) {
+    public SnapshotSession(ServerLevel level, Camera camera, RenderSettings settings, ChunksConfig chunks, ChunkKeeper keeper) {
         this.level = level;
         this.camera = camera;
         this.settings = settings;
         this.chunks = chunks;
+        this.keeper = keeper;
 
         Vec3 position = new Vec3(settings.position().get(0), settings.position().get(1), settings.position().get(2));
         this.environment = new EnvironmentSnapshot(
@@ -85,7 +89,9 @@ public final class SnapshotSession {
                 toRgb(level.environmentAttributes().getValue(EnvironmentAttributes.SKY_COLOR, position), FALLBACK_SKY)
             ),
             SkyColors.zenith(toRgb(level.environmentAttributes().getValue(EnvironmentAttributes.SKY_COLOR, position), FALLBACK_SKY)),
-            level.dimensionType().hasSkyLight()
+            level.dimensionType().hasSkyLight(),
+            level.getGameTime(),
+            level.dimension() == Level.OVERWORLD
         );
         this.snapshot = new WorldSnapshot(this.environment);
         this.radius = settings.renderDistanceBlocks() + 16;
@@ -133,6 +139,9 @@ public final class SnapshotSession {
             }
             if (chunk != null) {
                 this.copyColumn(chunk, column, light);
+                if (this.keeper != null) {
+                    this.keeper.keep(this.level, column.x(), column.z(), this.chunks.keepLoadedSeconds);
+                }
             }
         }
         this.workNanos += System.nanoTime() - stepStart;

@@ -26,6 +26,14 @@ public class ChunksConfig {
     @Annotation.Key("load-timeout-seconds")
     public int loadTimeoutSeconds = 10;
 
+    @Annotation.Comment("""
+        How long in seconds chunks of a screenshot stay loaded afterwards (loading only, they are not ticked).
+        Makes repeated screenshots of the same area fast, because the chunks do not have to be read from disk again.
+        0 = off, Minecraft then unloads them a few seconds after the screenshot.
+    """)
+    @Annotation.Key("keep-loaded-seconds")
+    public int keepLoadedSeconds = 30;
+
     public static enum Mode {
         NONE,
         LOAD

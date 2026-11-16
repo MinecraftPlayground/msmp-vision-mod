@@ -36,4 +36,10 @@ public class RenderConfig {
     """)
     @Annotation.Key("png-compression-level")
     public int pngCompressionLevel = 1;
+
+    @Annotation.Comment("""
+        Renders a synthetic scene when the server starts so that the Java JIT compiler has already optimized the
+        renderer. Without it the first screenshots after a start are several times slower.
+    """)
+    public boolean warmup = true;
 }

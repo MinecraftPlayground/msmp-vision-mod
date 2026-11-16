@@ -45,17 +45,35 @@ public final class TileRasterizer {
      * @param fog Distance fog.
      */
     public void rasterize(TriangleBuffer opaque, TriangleBuffer translucent, Framebuffer target, TextureData[] textures, Fog fog) {
+        this.rasterize(opaque, translucent, new TriangleBuffer(), target, textures, fog, fog);
+    }
+
+    /**
+     * Rasterizes all three layers into the framebuffer. The clouds are drawn last, with their own fog, because they
+     * are much farther away than the terrain.
+     *
+     * @param opaque Opaque triangles (any order).
+     * @param translucent Translucent triangles (sorted internally).
+     * @param clouds Cloud triangles (sorted internally).
+     * @param target The framebuffer, may already contain a sky.
+     * @param textures Textures indexed by texture id.
+     * @param fog Distance fog of the terrain.
+     * @param cloudFog Distance fog of the clouds.
+     */
+    public void rasterize(TriangleBuffer opaque, TriangleBuffer translucent, TriangleBuffer clouds, Framebuffer target,
+                          TextureData[] textures, Fog fog, Fog cloudFog) {
         int tilesX = (target.width() + this.tileSize - 1) / this.tileSize;
         int tilesY = (target.height() + this.tileSize - 1) / this.tileSize;
 
         IntArrayList[] opaqueBins = this.bin(opaque, null, tilesX, tilesY);
         IntArrayList[] translucentBins = this.bin(translucent, this.sortBackToFront(translucent), tilesX, tilesY);
+        IntArrayList[] cloudBins = this.bin(clouds, this.sortBackToFront(clouds), tilesX, tilesY);
 
         List<CompletableFuture<Void>> jobs = new ArrayList<>(tilesX * tilesY);
         for (int ty = 0; ty < tilesY; ty++) {
             for (int tx = 0; tx < tilesX; tx++) {
                 int bin = ty * tilesX + tx;
-                if (opaqueBins[bin] == null && translucentBins[bin] == null) {
+                if (opaqueBins[bin] == null && translucentBins[bin] == null && cloudBins[bin] == null) {
                     continue;
                 }
                 int x0 = tx * this.tileSize;
@@ -65,6 +83,7 @@ public final class TileRasterizer {
                 jobs.add(CompletableFuture.runAsync(() -> {
                     this.drawBin(opaque, opaqueBins[bin], false, x0, y0, x1, y1, target, textures, fog);
                     this.drawBin(translucent, translucentBins[bin], true, x0, y0, x1, y1, target, textures, fog);
+                    this.drawBin(clouds, cloudBins[bin], true, x0, y0, x1, y1, target, textures, cloudFog);
                 }, this.executor.executor()));
             }
         }

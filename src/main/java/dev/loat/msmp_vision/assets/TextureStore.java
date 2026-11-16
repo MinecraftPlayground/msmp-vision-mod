@@ -56,6 +56,17 @@ public final class TextureStore {
         }
     }
 
+    /**
+     * Returns a 1x1 texture of a single colour, used for geometry without a real texture (clouds).
+     *
+     * @param name A unique name.
+     * @param argb The colour including alpha.
+     * @return The texture, created on first use.
+     */
+    public TextureData solid(String name, int argb) {
+        return this.byName.computeIfAbsent("synthetic:" + name, key -> this.register(1, 1, new int[]{argb}));
+    }
+
     private TextureData load(String name) {
         byte[] bytes = this.assets.read(ResourceIds.texturePath(name));
         if (bytes != null) {

@@ -11,10 +11,13 @@ import dev.loat.msmp_vision.msmp.endpoints.screenshot.ScreenshotRequest;
 import dev.loat.msmp_vision.msmp.endpoints.screenshot.ScreenshotResponse;
 import dev.loat.msmp_vision.msmp.exceptions.UnknownDimensionException;
 import dev.loat.msmp_vision.render.Camera;
+import dev.loat.msmp_vision.render.JvmStats;
 import dev.loat.msmp_vision.render.RenderExecutor;
 import dev.loat.msmp_vision.render.RenderSettings;
 import dev.loat.msmp_vision.render.Rendered;
 import dev.loat.msmp_vision.render.SceneRenderer;
+import dev.loat.msmp_vision.render.Warmup;
+import dev.loat.msmp_vision.world.ChunkKeeper;
 import dev.loat.msmp_vision.world.SnapshotSession;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.Registries;
@@ -30,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Handles screenshot requests: validates, captures the world on the server thread and renders on worker threads.
@@ -43,6 +47,8 @@ public final class VisionService {
     ) {}
 
     private volatile Runtime runtime;
+    private final ChunkKeeper keeper = new ChunkKeeper();
+    private final AtomicLong requests = new AtomicLong();
 
     /**
      * Starts asset preparation and the render pool. Call on server start.
@@ -65,15 +71,31 @@ public final class VisionService {
             }
         });
         this.runtime = new Runtime(executor, renderer, ready);
+
+        if (config.render.warmup) {
+            Thread warmup = new Thread(() -> Warmup.run(executor, config.render.tileSize, config.render.pngCompressionLevel), "msmp-vision-warmup");
+            warmup.setDaemon(true);
+            warmup.start();
+        }
     }
 
     /** Stops the render pool. Call on server stop. */
     public void stop() {
         Runtime current = this.runtime;
         this.runtime = null;
+        this.keeper.clear();
         if (current != null) {
             current.executor().shutdown();
         }
+    }
+
+    /**
+     * Keeps recently captured chunks loaded and expires them. Call once per server tick (on the server thread).
+     *
+     * @param server The server.
+     */
+    public void tick(MinecraftServer server) {
+        this.keeper.tick();
     }
 
     /**
@@ -102,6 +124,8 @@ public final class VisionService {
         RenderSettings settings = RenderSettings.from(request, config);
         ServerLevel level = this.resolveLevel(server, request.dimension());
 
+        JvmStats.Sample jvmBefore = JvmStats.sample();
+        long number = this.requests.incrementAndGet();
         long start = System.nanoTime();
         Camera camera = new Camera(settings);
         SnapshotSession session = this.capture(server, level, camera, settings, config);
@@ -110,10 +134,10 @@ public final class VisionService {
         String encoded = ImageEncoder.toBase64Png(rendered.image(), config.render.pngCompressionLevel);
         long end = System.nanoTime();
 
-        Logger.info("Screenshot timings: capture %d ms (server thread), mesh %d ms, sky %d ms, raster %d ms, downsample %d ms, encode %d ms, total %d ms."
-            .formatted(session.workNanos() / 1_000_000L, rendered.meshNanos() / 1_000_000L, rendered.skyNanos() / 1_000_000L,
+        Logger.info("Screenshot #%d timings: capture %d ms (server thread), mesh %d ms, sky %d ms, raster %d ms, downsample %d ms, encode %d ms, total %d ms; %s"
+            .formatted(number, session.workNanos() / 1_000_000L, rendered.meshNanos() / 1_000_000L, rendered.skyNanos() / 1_000_000L,
                 rendered.tileNanos() / 1_000_000L, rendered.downsampleNanos() / 1_000_000L, (end - encodeStart) / 1_000_000L,
-                (end - start) / 1_000_000L));
+                (end - start) / 1_000_000L, JvmStats.since(jvmBefore)));
         return new ScreenshotResponse(encoded, "png", rendered.image().getWidth(), rendered.image().getHeight(), (int) ((end - start) / 1_000_000L));
     }
 
@@ -138,8 +162,8 @@ public final class VisionService {
         }
     }
 
-    private static SnapshotSession captureAll(ServerLevel level, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
-        SnapshotSession session = new SnapshotSession(level, camera, settings, config.chunks);
+    private SnapshotSession captureAll(ServerLevel level, Camera camera, RenderSettings settings, MSMPVisionConfigFile config) {
+        SnapshotSession session = new SnapshotSession(level, camera, settings, config.chunks, this.keeper);
         session.step(Long.MAX_VALUE);
         return session;
     }
