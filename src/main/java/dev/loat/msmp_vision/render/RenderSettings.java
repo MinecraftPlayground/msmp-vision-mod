@@ -2,6 +2,7 @@ package dev.loat.msmp_vision.render;
 
 import java.util.List;
 
+import dev.loat.msmp_vision.assets.TextureData;
 import dev.loat.msmp_vision.config.files.MSMPVisionConfigFile;
 import dev.loat.msmp_vision.config.files.defaults.DefaultsConfig;
 import dev.loat.msmp_vision.config.files.limits.LimitsConfig;
@@ -23,6 +24,7 @@ import dev.loat.msmp_vision.msmp.exceptions.InvalidParamsException;
  * @param ssaa Supersampling factor (1 = off).
  * @param biomeBlend Biome tint blend radius in blocks.
  * @param brightness Brightness like in Minecraft's video settings, 0 (Moody) to 1 (Bright).
+ * @param mipmapLevels Mipmap levels like in Minecraft's video settings, 0 (off) to 4.
  */
 public record RenderSettings(
     List<Double> position,
@@ -34,7 +36,8 @@ public record RenderSettings(
     int renderDistance,
     int ssaa,
     int biomeBlend,
-    double brightness
+    double brightness,
+    int mipmapLevels
 ) {
 
     /** Pitch is clamped slightly below +-90 degrees so the camera's up vector never degenerates. */
@@ -68,6 +71,7 @@ public record RenderSettings(
         int ssaa = request.ssaa().orElse(defaultsConfig.ssaa);
         int blend = request.biomeBlend().orElse(defaultsConfig.biomeBlend);
         double brightness = request.brightness().orElse(defaultsConfig.brightness);
+        int mipmaps = request.mipmapLevels().orElse(defaultsConfig.mipmapLevels);
 
         require(width > 0, "'width' must be positive");
         require(height > 0, "'height' must be positive");
@@ -75,6 +79,8 @@ public record RenderSettings(
         require(ssaa > 0, "'ssaa' must be positive");
         require(blend >= 0, "'biome_blend' must not be negative");
         require(Double.isFinite(brightness) && brightness >= 0 && brightness <= 1, "'brightness' must be between 0 and 1");
+
+        require(mipmaps >= 0 && mipmaps <= TextureData.MAX_MIPMAP_LEVELS, "'mipmap_levels' must be between 0 and " + TextureData.MAX_MIPMAP_LEVELS);
 
         require(width <= limitsConfig.maxWidth, "'width' exceeds the limit of " + limitsConfig.maxWidth);
         require(height <= limitsConfig.maxHeight, "'height' exceeds the limit of " + limitsConfig.maxHeight);
@@ -93,7 +99,8 @@ public record RenderSettings(
             distance,
             ssaa,
             Math.min(blend, 4),
-            brightness
+            brightness,
+            mipmaps
         );
     }
 

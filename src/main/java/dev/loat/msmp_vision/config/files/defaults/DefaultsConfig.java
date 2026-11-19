@@ -27,4 +27,8 @@ public class DefaultsConfig {
 
     @Annotation.Comment("Brightness like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.")
     public double brightness = 0.5;
+
+    @Annotation.Comment("Mipmap levels like in Minecraft's video settings (0 = off, max 4). Smooths and stabilises distant textures.")
+    @Annotation.Key("mipmap-levels")
+    public int mipmapLevels = 4;
 }

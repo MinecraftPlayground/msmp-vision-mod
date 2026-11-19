@@ -103,7 +103,7 @@ public final class SceneRenderer {
         float cloudEnd = (float) config.clouds.distance;
         Fog cloudFog = Fog.of(cloudEnd * 0.4f, cloudEnd, world.environment().fogColor(),
             camera.tanHalfFov(), camera.aspect(), width, height);
-        new TileRasterizer(this.executor, config.render.tileSize, timeout)
+        new TileRasterizer(this.executor, config.render.tileSize, timeout, settings.mipmapLevels())
             .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), clouds, framebuffer, this.texturesById(), fog, cloudFog);
         long tilesDone = System.nanoTime();
         BufferedImage image = framebuffer.toImage(settings.ssaa());

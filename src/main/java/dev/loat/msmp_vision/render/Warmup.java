@@ -39,7 +39,7 @@ public final class Warmup {
     public static void run(RenderExecutor executor, int tileSize, int pngCompressionLevel) {
         long start = System.nanoTime();
         try {
-            RenderSettings settings = new RenderSettings(List.of(0.5, 80.0, 0.5), 0.0, 20.0, WIDTH, HEIGHT, 90.0, 8, 1, 1, 0.5);
+            RenderSettings settings = new RenderSettings(List.of(0.5, 80.0, 0.5), 0.0, 20.0, WIDTH, HEIGHT, 90.0, 8, 1, 1, 0.5, 4);
             Camera camera = new Camera(settings);
             EnvironmentSnapshot environment = new EnvironmentSnapshot(0.4, 1f, 0xB3D0FF, 0x6EA5FF, true, 0L, false);
 
@@ -61,7 +61,7 @@ public final class Warmup {
             }
 
             Fog fog = Fog.of(120f, 150f, environment.fogColor(), camera.tanHalfFov(), camera.aspect(), WIDTH, HEIGHT);
-            TileRasterizer rasterizer = new TileRasterizer(executor, tileSize, 60);
+            TileRasterizer rasterizer = new TileRasterizer(executor, tileSize, 60, 4);
             for (int round = 0; round < ROUNDS; round++) {
                 TriangleBuffer triangles = new GeometryProjector(camera.viewProjection(), WIDTH, HEIGHT, true).project(quads);
                 Framebuffer framebuffer = new Framebuffer(WIDTH, HEIGHT);

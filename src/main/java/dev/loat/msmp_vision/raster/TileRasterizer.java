@@ -18,9 +18,13 @@ public final class TileRasterizer {
     private static final int T = TriangleBuffer.TRIANGLE;
     private static final int V = TriangleBuffer.VERTEX;
 
+    /** Opaque-pass pixels with less alpha are discarded, like the cutout shader of Minecraft (alpha below 0.1). */
+    private static final int CUTOUT_ALPHA = 26;
+
     private final RenderExecutor executor;
     private final int tileSize;
     private final long timeoutSeconds;
+    private final int mipmapLevels;
 
     /**
      * Creates a rasterizer.
@@ -28,8 +32,10 @@ public final class TileRasterizer {
      * @param executor Worker pool.
      * @param tileSize Tile edge length in pixels.
      * @param timeoutSeconds Maximum time for the whole raster pass.
+     * @param mipmapLevels Highest mipmap level that may be sampled, 0 turns mipmapping off.
      */
-    public TileRasterizer(RenderExecutor executor, int tileSize, long timeoutSeconds) {
+    public TileRasterizer(RenderExecutor executor, int tileSize, long timeoutSeconds, int mipmapLevels) {
+        this.mipmapLevels = Math.max(0, mipmapLevels);
         this.executor = executor;
         this.tileSize = Math.max(8, tileSize);
         this.timeoutSeconds = timeoutSeconds;
@@ -175,6 +181,20 @@ public final class TileRasterizer {
         double e1dx = -(ay - cy), e1dy = ax - cx;
         double e2dx = -(by - ay), e2dy = bx - ax;
 
+        // Screen-space derivatives of u/w, v/w and 1/w are constant per triangle; from them the texture coordinate
+        // derivatives (and so the mipmap level) follow per pixel.
+        boolean mip = this.mipmapLevels > 0 && texture.levels() > 1;
+        float dUdx = 0, dUdy = 0, dVdx = 0, dVdy = 0, dWdx = 0, dWdy = 0;
+        if (mip) {
+            dUdx = (float) ((e0dx * au + e1dx * bu + e2dx * cu) * inv);
+            dUdy = (float) ((e0dy * au + e1dy * bu + e2dy * cu) * inv);
+            dVdx = (float) ((e0dx * av + e1dx * bv + e2dx * cv) * inv);
+            dVdy = (float) ((e0dy * av + e1dy * bv + e2dy * cv) * inv);
+            dWdx = (float) ((e0dx * aw + e1dx * bw + e2dx * cw) * inv);
+            dWdy = (float) ((e0dy * aw + e1dy * bw + e2dy * cw) * inv);
+        }
+        int cutout = translucentPass ? 1 : CUTOUT_ALPHA;
+
         int[] color = target.color();
         float[] depth = target.depth();
         int width = target.width();
@@ -197,9 +217,19 @@ public final class TileRasterizer {
                 float w = 1f / invW;
                 float u = (float) (w0 * au + w1 * bu + w2 * cu) * w;
                 float v = (float) (w0 * av + w1 * bv + w2 * cv) * w;
-                int texel = texture.sample(u, v);
+                int texel;
+                if (mip) {
+                    float dudx = (dUdx - u * dWdx) * w;
+                    float dvdx = (dVdx - v * dWdx) * w;
+                    float dudy = (dUdy - u * dWdy) * w;
+                    float dvdy = (dVdy - v * dWdy) * w;
+                    float lod = MipLod.lod(dudx, dvdx, dudy, dvdy, texture.width(), texture.height());
+                    texel = texture.sample(u, v, lod, this.mipmapLevels);
+                } else {
+                    texel = texture.sample(u, v);
+                }
                 int alpha = texel >>> 24;
-                if (alpha == 0) {
+                if (alpha < cutout) {
                     continue;
                 }
                 float lr = (float) (w0 * ar + w1 * br + w2 * cr) * w;
