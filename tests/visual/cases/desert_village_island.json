@@ -1,0 +1,19 @@
+{
+  "description": "A village in the desert on an island in the ocean.",
+  "commands": ["time set 1000"],
+  "request": {
+    "dimension": "minecraft:overworld",
+    "position": [81.5, 76.62, 19.5],
+    "rotation": [-61.5, 24.0],
+    "fov": 110.0,
+    "render_distance": 12,
+    "ssaa": 1,
+    "biome_blend": 5,
+    "brightness": 0.5,
+    "mipmap_levels": 4
+  },
+  "thresholds": {
+    "mae": 0.08,
+    "bad_pixels": 0.35
+  }
+}
