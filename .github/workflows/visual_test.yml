@@ -19,15 +19,14 @@ on:
   pull_request:
     branches:
       - main
-    paths: &paths
+
+  push:
+    paths:
       - 'src/**'
       - 'tests/visual/**'
       - 'build.gradle'
       - 'gradle.properties'
       - '.github/workflows/visual_test.yml'
-
-  push:
-    paths: *paths
 
 concurrency:
   group: 'visual-test-${{ github.ref }}'
