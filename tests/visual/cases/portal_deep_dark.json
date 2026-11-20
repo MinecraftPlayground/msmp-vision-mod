@@ -3,7 +3,7 @@
   "commands": ["time set 1000"],
   "request": {
     "dimension": "minecraft:overworld",
-    "position": [-1358.5, -42.62, -387.5],
+    "position": [-1358.5, -39.38, -387.5],
     "rotation": [-62.0, 19.0],
     "fov": 110.0,
     "render_distance": 12,
