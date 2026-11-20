@@ -1,0 +1,19 @@
+{
+  "description": "A red mushroom in a dark forest on the edge to a pale garden.",
+  "commands": ["time set 1000"],
+  "request": {
+    "dimension": "minecraft:overworld",
+    "position": [933.5, 123.62, 997.5],
+    "rotation": [75, 26],
+    "fov": 110.0,
+    "render_distance": 12,
+    "ssaa": 1,
+    "biome_blend": 5,
+    "brightness": 0.5,
+    "mipmap_levels": 4
+  },
+  "thresholds": {
+    "mae": 0.08,
+    "bad_pixels": 0.35
+  }
+}
