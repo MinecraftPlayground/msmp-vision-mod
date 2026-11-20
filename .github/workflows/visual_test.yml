@@ -27,8 +27,6 @@ on:
       - '.github/workflows/visual_test.yml'
 
   push:
-    branches:
-      - dev
     paths: *paths
 
 concurrency:
