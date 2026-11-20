@@ -1,7 +1,7 @@
 # Visual Test
 
 Renders every case in `cases/` with the server and compares the result with a screenshot of the Minecraft client.
-Run by `.github/workflows/visual-test.yml` (manually, on pull requests to `main` and on pushes to `dev`).
+Run by `.github/workflows/test_visual.yml` (manually, on pull requests to `main` and on pushes to `dev`).
 
 ## A case
 
@@ -72,7 +72,7 @@ The scene must be reproducible, so:
 ```
 ./gradlew build
 pip install -r tests/visual/requirements.txt
-python tests/visual/run.py --mod-jar build/libs/msmp-vision-mod-<version>.jar --mode report-only
+python tests/visual/main.py --mod-jar build/libs/msmp-vision-mod-<version>.jar --mode report-only
 ```
 
 Needs Java 25. Results are in `tests/visual/results/`.

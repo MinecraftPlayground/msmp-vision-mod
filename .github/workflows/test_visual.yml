@@ -92,7 +92,7 @@ jobs:
         run: |
           JAR=$(ls build/libs/*.jar | grep -v -e '-sources' -e '-dev' | head -n 1)
           echo "Using $JAR"
-          python tests/visual/run.py --mod-jar "$JAR" --mode "$MODE" --cases "$CASES"
+          python tests/visual/main.py --mod-jar "$JAR" --mode "$MODE" --cases "$CASES"
 
       - name: 'Save Server Cache'
         if: always() && steps.cache.outputs.cache-hit != 'true'
