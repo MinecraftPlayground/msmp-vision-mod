@@ -61,7 +61,7 @@ public final class TintResolver {
         }
         try {
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(bytes));
-            return image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth());
+            return dev.loat.msmp_vision.assets.ImageDecoder.argb(image);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

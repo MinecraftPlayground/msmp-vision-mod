@@ -1,0 +1,18 @@
+# Configuration of msmp-vision for the test server (partial, missing keys are filled with defaults).
+render:
+  # Not needed, the server is only used for a handful of requests.
+  warmup: false
+chunks:
+  mode: LOAD
+  max-chunk-loads: 4096
+  # Chunk generation on a CI runner is slow, a timeout would leave holes in the picture.
+  load-timeout-seconds: 300
+  keep-loaded-seconds: 900
+clouds:
+  # The clouds drift with the game time, so they can not match a client screenshot. Set "Clouds: Off" in the client.
+  enabled: false
+limits:
+  max-width: 3840
+  max-height: 2160
+  max-rendered-pixels: 16000000
+request-timeout-seconds: 300

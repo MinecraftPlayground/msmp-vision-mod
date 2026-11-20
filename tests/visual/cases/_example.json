@@ -1,0 +1,19 @@
+{
+  "description": "Example, ignored because the name starts with an underscore. Copy it to <name>.json and put <name>.png next to it.",
+  "commands": ["time set 1000"],
+  "request": {
+    "dimension": "minecraft:overworld",
+    "position": [128.5, 81.62, -32.3],
+    "rotation": [90.0, 10.0],
+    "fov": 70.0,
+    "render_distance": 12,
+    "ssaa": 1,
+    "biome_blend": 5,
+    "brightness": 0.5,
+    "mipmap_levels": 4
+  },
+  "thresholds": {
+    "mae": 0.08,
+    "bad_pixels": 0.35
+  }
+}

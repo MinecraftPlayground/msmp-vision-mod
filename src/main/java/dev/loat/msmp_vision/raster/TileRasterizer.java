@@ -75,6 +75,10 @@ public final class TileRasterizer {
         IntArrayList[] translucentBins = this.bin(translucent, this.sortBackToFront(translucent), tilesX, tilesY);
         IntArrayList[] cloudBins = this.bin(clouds, this.sortBackToFront(clouds), tilesX, tilesY);
 
+        // Like Minecraft, the clouds first write depth only and are then drawn where they are nearest, so overlapping
+        // faces of a cloud do not blend twice.
+        float[] cloudDepth = clouds.count() > 0 ? new float[target.width() * target.height()] : null;
+
         List<CompletableFuture<Void>> jobs = new ArrayList<>(tilesX * tilesY);
         for (int ty = 0; ty < tilesY; ty++) {
             for (int tx = 0; tx < tilesX; tx++) {
@@ -87,9 +91,10 @@ public final class TileRasterizer {
                 int x1 = Math.min(target.width(), x0 + this.tileSize);
                 int y1 = Math.min(target.height(), y0 + this.tileSize);
                 jobs.add(CompletableFuture.runAsync(() -> {
-                    this.drawBin(opaque, opaqueBins[bin], false, x0, y0, x1, y1, target, textures, fog);
-                    this.drawBin(translucent, translucentBins[bin], true, x0, y0, x1, y1, target, textures, fog);
-                    this.drawBin(clouds, cloudBins[bin], true, x0, y0, x1, y1, target, textures, cloudFog);
+                    this.drawBin(opaque, opaqueBins[bin], false, x0, y0, x1, y1, target, textures, fog, null, false);
+                    this.drawBin(translucent, translucentBins[bin], true, x0, y0, x1, y1, target, textures, fog, null, false);
+                    this.drawBin(clouds, cloudBins[bin], true, x0, y0, x1, y1, target, textures, cloudFog, cloudDepth, true);
+                    this.drawBin(clouds, cloudBins[bin], true, x0, y0, x1, y1, target, textures, cloudFog, cloudDepth, false);
                 }, this.executor.executor()));
             }
         }
@@ -140,7 +145,7 @@ public final class TileRasterizer {
     }
 
     private void drawBin(TriangleBuffer buffer, IntArrayList bin, boolean translucentPass, int x0, int y0, int x1, int y1,
-                         Framebuffer target, TextureData[] textures, Fog fog) {
+                         Framebuffer target, TextureData[] textures, Fog fog, float[] prepass, boolean depthOnly) {
         if (bin == null) {
             return;
         }
@@ -148,13 +153,13 @@ public final class TileRasterizer {
             int i = bin.getInt(n);
             TextureData texture = textures[buffer.texture(i)];
             if (texture != null) {
-                this.drawTriangle(buffer.data(), i * T, texture, translucentPass, x0, y0, x1, y1, target, fog);
+                this.drawTriangle(buffer.data(), i * T, texture, translucentPass, x0, y0, x1, y1, target, fog, prepass, depthOnly);
             }
         }
     }
 
     private void drawTriangle(float[] d, int o, TextureData texture, boolean translucentPass, int x0, int y0, int x1, int y1,
-                              Framebuffer target, Fog fog) {
+                              Framebuffer target, Fog fog, float[] prepass, boolean depthOnly) {
         float ax = d[o], ay = d[o + 1], aw = d[o + 2], au = d[o + 3], av = d[o + 4], ar = d[o + 5], ag = d[o + 6], ab = d[o + 7];
         float bx = d[o + V], by = d[o + V + 1], bw = d[o + V + 2], bu = d[o + V + 3], bv = d[o + V + 4], br = d[o + V + 5], bg = d[o + V + 6], bb = d[o + V + 7];
         float cx = d[o + 2 * V], cy = d[o + 2 * V + 1], cw = d[o + 2 * V + 2], cu = d[o + 2 * V + 3], cv = d[o + 2 * V + 4], cr = d[o + 2 * V + 5], cg = d[o + 2 * V + 6], cb = d[o + 2 * V + 7];
@@ -213,6 +218,19 @@ public final class TileRasterizer {
                 float invW = (float) (w0 * aw + w1 * bw + w2 * cw);
                 if (invW <= depth[idx]) {
                     continue;
+                }
+                if (prepass != null) {
+                    if (depthOnly) {
+                        if (invW > prepass[idx]) {
+                            prepass[idx] = invW;
+                        }
+                        continue;
+                    }
+                    if (invW < prepass[idx] * 0.9999f) {
+                        continue;
+                    }
+                    // Only the nearest fragment is drawn, and only once (shared edges of two triangles would blend twice).
+                    prepass[idx] = Float.POSITIVE_INFINITY;
                 }
                 float w = 1f / invW;
                 float u = (float) (w0 * au + w1 * bu + w2 * cu) * w;

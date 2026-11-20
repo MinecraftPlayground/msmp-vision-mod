@@ -62,10 +62,11 @@ public final class CloudMask {
             }
             int width = image.getWidth();
             int height = image.getHeight();
+            int[] argb = dev.loat.msmp_vision.assets.ImageDecoder.argb(image);
             boolean[] cells = new boolean[width * height];
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    cells[y * width + x] = (image.getRGB(x, y) >>> 24) > 0;
+                    cells[y * width + x] = (argb[y * width + x] >>> 24) > 0;
                 }
             }
             return new Mask(cells, width, height);

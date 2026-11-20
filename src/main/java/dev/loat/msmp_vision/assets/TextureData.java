@@ -146,12 +146,21 @@ public final class TextureData {
         return this.levelPixels[level][y * w + x];
     }
 
+    /** Blends two pixels weighted by alpha, so the (meaningless) colour of a transparent pixel does not darken the edge. */
     private static int mix(int a, int b, int fraction) {
-        int result = 0;
-        for (int shift = 24; shift >= 0; shift -= 8) {
+        int alphaA = a >>> 24;
+        int alphaB = b >>> 24;
+        int weightA = alphaA * (256 - fraction);
+        int weightB = alphaB * fraction;
+        int total = weightA + weightB;
+        if (total == 0) {
+            return 0;
+        }
+        int result = ((alphaA * (256 - fraction) + alphaB * fraction) >> 8) << 24;
+        for (int shift = 16; shift >= 0; shift -= 8) {
             int ca = (a >>> shift) & 0xFF;
             int cb = (b >>> shift) & 0xFF;
-            result |= (ca + (((cb - ca) * fraction) >> 8)) << shift;
+            result |= ((ca * weightA + cb * weightB) / total) << shift;
         }
         return result;
     }

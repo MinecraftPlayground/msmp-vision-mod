@@ -37,6 +37,7 @@ public final class SceneRenderer {
     private final RenderExecutor executor;
     private final BlockModelBaker baker;
     private final CloudMask cloudMask;
+    private final SunTexture sunTexture;
     private final TintResolver tint = new TintResolver();
 
     /**
@@ -51,6 +52,7 @@ public final class SceneRenderer {
         this.executor = executor;
         this.baker = new BlockModelBaker(new BlockStateSelector(assets), new ModelResolver(assets), textures);
         this.cloudMask = new CloudMask(assets);
+        this.sunTexture = new SunTexture(assets);
     }
 
     /**
@@ -93,7 +95,7 @@ public final class SceneRenderer {
 
         Framebuffer framebuffer = new Framebuffer(width, height);
         long skyStart = System.nanoTime();
-        SkyPainter.paint(framebuffer, camera, world.environment(), this.executor, timeout);
+        SkyPainter.paint(framebuffer, camera, world.environment(), this.executor, timeout, this.sunTexture.get());
         long skyDone = System.nanoTime();
 
         float fogEnd = settings.renderDistanceBlocks();
@@ -121,7 +123,8 @@ public final class SceneRenderer {
         if (mask == null) {
             return new TriangleBuffer();
         }
-        TextureData texture = this.textures.solid("cloud", 0xCCFFFFFF);
+        int alpha = (int) Math.round(255.0 * Math.max(0.0, Math.min(1.0, config.clouds.opacity)));
+        TextureData texture = this.textures.solid("cloud-" + alpha, (alpha << 24) | 0xFFFFFF);
         float brightness = 0.9f * environment.skyLightFactor() + 0.1f;
         QuadBuffer quads = new QuadBuffer();
         CloudGeometry.build(quads, texture.id(), mask.cells(), mask.width(), mask.height(),

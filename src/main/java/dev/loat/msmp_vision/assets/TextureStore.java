@@ -75,7 +75,7 @@ public final class TextureStore {
                 if (image != null) {
                     int width = image.getWidth();
                     int frameHeight = Math.min(image.getHeight(), width); // animated strips: first frame only
-                    return this.register(width, frameHeight, image.getRGB(0, 0, width, frameHeight, null, 0, width));
+                    return this.register(width, frameHeight, java.util.Arrays.copyOf(ImageDecoder.argb(image), width * frameHeight));
                 }
             } catch (IOException e) {
                 Logger.warning("Failed to decode texture '%s': %s".formatted(name, e.getMessage()));
