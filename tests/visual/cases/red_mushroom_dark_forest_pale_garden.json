@@ -4,7 +4,7 @@
   "request": {
     "dimension": "minecraft:overworld",
     "position": [933.5, 123.62, 997.5],
-    "rotation": [75, 26],
+    "rotation": [75.0, 26.0],
     "fov": 110.0,
     "render_distance": 12,
     "ssaa": 1,
