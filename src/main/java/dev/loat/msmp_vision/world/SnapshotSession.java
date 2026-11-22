@@ -95,6 +95,7 @@ public final class SnapshotSession {
             MoonPhases.resolve(level, position)
         );
         this.snapshot = new WorldSnapshot(this.environment);
+        Logger.info("Environment at the camera: " + EnvironmentLog.describe(level, position));
         this.radius = settings.renderDistanceBlocks() + 16;
         this.minSectionY = level.getMinSectionY();
         this.loadLimitNanos = TimeUnit.SECONDS.toNanos(Math.max(0, chunks.loadTimeoutSeconds));

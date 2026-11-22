@@ -45,7 +45,7 @@ import java.util.Optional;
  * @param renderDistance The render distance in blocks, if provided
  * @param ssaa The supersampling factor (1 = off), if provided
  * @param biomeBlend The biome tint blend radius in blocks (0 = off), if provided
- * @param brightness The brightness like in Minecraft's video settings (0 = Moody, 1 = 100 %), if provided
+ * @param brightness The brightness like in Minecraft's video settings (0 = Moody, 0.5 = default, 1 = Bright), if provided
  * @param mipmapLevels The mipmap levels like in Minecraft's video settings (0 = off, max 4), if provided
  */
 public record ScreenshotRequest(

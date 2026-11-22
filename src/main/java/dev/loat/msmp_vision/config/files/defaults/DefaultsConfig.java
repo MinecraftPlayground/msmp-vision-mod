@@ -25,8 +25,8 @@ public class DefaultsConfig {
     @Annotation.Key("biome-blend")
     public int biomeBlend = 1;
 
-    @Annotation.Comment("Brightness like in Minecraft's video settings: as the percentage in the video settings (0 = Moody, 1 = 100 %).")
-    public double brightness = 1.0;
+    @Annotation.Comment("Brightness like in Minecraft's video settings: like in Minecraft's video settings: 0 = Moody, 0.5 = default (50 %), 1 = Bright (100 %).")
+    public double brightness = 0.5;
 
     @Annotation.Comment("Mipmap levels like in Minecraft's video settings (0 = off, max 4). Smooths and stabilises distant textures.")
     @Annotation.Key("mipmap-levels")

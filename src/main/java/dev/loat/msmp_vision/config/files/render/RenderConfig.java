@@ -26,6 +26,13 @@ public class RenderConfig {
     @Annotation.Key("smooth-lighting")
     public boolean smoothLighting = true;
 
+    @Annotation.Comment("""
+        Empirical: how much brighter block light is than the plain light curve (0 = off, 1 = full bright).
+        Measured on client screenshots of caves, see the environment attributes logged for each screenshot.
+    """)
+    @Annotation.Key("block-light-ambient")
+    public double blockLightAmbient = 0.2;
+
     @Annotation.Comment("Skip back-facing triangles. Disable only for debugging.")
     @Annotation.Key("backface-culling")
     public boolean backfaceCulling = true;

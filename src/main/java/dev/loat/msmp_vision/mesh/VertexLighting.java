@@ -61,18 +61,37 @@ public final class VertexLighting {
     private final int[] sideV = new int[3];
     private final int[] corner = new int[3];
     private final float[] scratch = new float[3];
+    private final float blockAmbient;
+
+    /** Tint of block light, measured on client screenshots (the old level dependent formula did not match). */
+    private static final float TINT_R = 1.0f;
+    private static final float TINT_G = 0.85f;
+    private static final float TINT_B = 0.55f;
 
     /**
      * Creates a calculator.
      *
      * @param samples The world.
      * @param skyLightFactor Sky light multiplier, 0 (night) to 1 (day).
-     * @param gamma Brightness option like in Minecraft's video settings: 0 = Moody, 1 = 100 %.
+     * @param gamma Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
      */
     public VertexLighting(Samples samples, float skyLightFactor, float gamma) {
+        this(samples, skyLightFactor, gamma, 0f);
+    }
+
+    /**
+     * Creates a calculator.
+     *
+     * @param samples The world.
+     * @param skyLightFactor Sky light multiplier, 0 (night) to 1 (day).
+     * @param gamma Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
+     * @param blockAmbient How far block light levels above 0 are lifted towards full brightness, 0..1 (empirical).
+     */
+    public VertexLighting(Samples samples, float skyLightFactor, float gamma, float blockAmbient) {
         this.samples = samples;
         this.skyLightFactor = skyLightFactor;
         this.gamma = Math.max(0f, Math.min(1f, gamma));
+        this.blockAmbient = Math.max(0f, Math.min(1f, blockAmbient));
     }
 
     /**
@@ -171,9 +190,8 @@ public final class VertexLighting {
     }
 
     /**
-     * Colour of the light, like Minecraft's lightmap: block light is warm (red stays, green and blue fall off faster at
-     * low levels), sky light is added in white, then a little ambient grey is mixed in and the brightness option blends
-     * the result towards {@code 1 - (1 - x)^4}.
+     * Colour of the light, like Minecraft's lightmap: block light is a warm tint, sky light is added in white, then a
+     * little ambient grey is mixed in and the brightness option blends the result towards {@code 1 - (1 - x)^4}.
      *
      * @param sky Sky light 0-15.
      * @param block Block light 0-15.
@@ -181,14 +199,13 @@ public final class VertexLighting {
      * @param offset First index in {@code out}.
      */
     public void color(float sky, float block, float[] out, int offset) {
-        float b = curve(block / 15f);
+        float curved = curve(block / 15f);
+        // The lift was measured at levels 5-8; it fades in over the first levels so faint light does not jump.
+        float b = curved + (1f - curved) * this.blockAmbient * Math.min(1f, block / 4f);
         float s = curve(sky / 15f) * this.skyLightFactor;
-        float r = b + s;
-        float g = b * ((b * 0.6f + 0.4f) * 0.6f + 0.4f) + s;
-        float bl = b * (b * b * 0.6f + 0.4f) + s;
-        out[offset] = this.finish(r);
-        out[offset + 1] = this.finish(g);
-        out[offset + 2] = this.finish(bl);
+        out[offset] = this.finish(b * TINT_R + s);
+        out[offset + 1] = this.finish(b * TINT_G + s);
+        out[offset + 2] = this.finish(b * TINT_B + s);
     }
 
     /**
