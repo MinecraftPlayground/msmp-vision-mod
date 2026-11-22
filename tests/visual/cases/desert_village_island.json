@@ -4,11 +4,11 @@
   "request": {
     "dimension": "minecraft:overworld",
     "position": [81.5, 76.62, 19.5],
-    "rotation": [-61.5, 24.0],
+    "rotation": [-61.0, 24.0],
     "fov": 110.0,
     "render_distance": 12,
     "ssaa": 1,
-    "biome_blend": 5,
+    "biome_blend": 2,
     "brightness": 0.5,
     "mipmap_levels": 4
   },

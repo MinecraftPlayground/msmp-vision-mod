@@ -91,7 +91,8 @@ public final class SnapshotSession {
             SkyColors.zenith(toRgb(level.environmentAttributes().getValue(EnvironmentAttributes.SKY_COLOR, position), FALLBACK_SKY)),
             level.dimensionType().hasSkyLight(),
             level.getGameTime(),
-            level.dimension() == Level.OVERWORLD
+            level.dimension() == Level.OVERWORLD,
+            MoonPhases.resolve(level, position)
         );
         this.snapshot = new WorldSnapshot(this.environment);
         this.radius = settings.renderDistanceBlocks() + 16;

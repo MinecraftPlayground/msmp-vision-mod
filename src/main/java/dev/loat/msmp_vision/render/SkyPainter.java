@@ -21,6 +21,8 @@ public final class SkyPainter {
     private static final float MOON_HALF = 0.05f;
     /** Half edge length of the sun quad as {@code tan(angle)}: 30 blocks at a distance of 100. */
     private static final float SUN_QUAD_HALF = 0.3f;
+    /** Half edge length of the moon quad: 20 blocks at a distance of 100. */
+    private static final float MOON_QUAD_HALF = 0.2f;
     /** Cosine of the angle beyond which the glow around the sun is zero. */
     private static final float GLOW_COS = (float) Math.cos(Math.toRadians(SkyColors.GLOW_RADIUS_DEGREES));
 
@@ -39,7 +41,7 @@ public final class SkyPainter {
      * @param timeoutSeconds Maximum time for the whole sky.
      */
     public static void paint(Framebuffer target, Camera camera, EnvironmentSnapshot environment, RenderExecutor executor, long timeoutSeconds) {
-        paint(target, camera, environment, executor, timeoutSeconds, null);
+        paint(target, camera, environment, executor, timeoutSeconds, null, null);
     }
 
     /**
@@ -51,9 +53,10 @@ public final class SkyPainter {
      * @param executor Worker pool.
      * @param timeoutSeconds Maximum time for the whole sky.
      * @param sunTexture The sun texture, {@code null} for the analytic sun and glow.
+     * @param moonTexture The texture of the current moon phase, {@code null} for a plain quad.
      */
     public static void paint(Framebuffer target, Camera camera, EnvironmentSnapshot environment, RenderExecutor executor, long timeoutSeconds,
-                             SunTexture.Texture sunTexture) {
+                             CelestialTextures.Texture sunTexture, CelestialTextures.Texture moonTexture) {
         Arrays.fill(target.depth(), 0f);
 
         float[] horizon = rgb(environment.fogColor());
@@ -70,13 +73,14 @@ public final class SkyPainter {
             int start = from;
             int end = Math.min(height, from + BAND_ROWS);
             jobs.add(CompletableFuture.runAsync(
-                () -> paintRows(target, camera, horizon, zenith, sun, tangent, glowScale, sunTexture, start, end), executor.executor()));
+                () -> paintRows(target, camera, horizon, zenith, sun, tangent, glowScale, sunTexture, moonTexture, start, end), executor.executor()));
         }
         executor.awaitAll(jobs, timeoutSeconds);
     }
 
     private static void paintRows(Framebuffer target, Camera camera, float[] horizon, float[] zenith,
-                                  Vector3f sun, Vector3f tangent, float glowScale, SunTexture.Texture sunTexture, int fromRow, int toRow) {
+                                  Vector3f sun, Vector3f tangent, float glowScale, CelestialTextures.Texture sunTexture,
+                                  CelestialTextures.Texture moonTexture, int fromRow, int toRow) {
         int width = target.width();
         int height = target.height();
         int[] color = target.color();
@@ -97,19 +101,30 @@ public final class SkyPainter {
 
                 float d = dir.dot(sun);
                 if (sunTexture != null) {
+                    // Like Minecraft's quads: the sun is 60 blocks wide at a distance of 100, the moon 40. The texture axes
+                    // are fixed to the sky (north-south axis and the sun's path), the moon is the sun's quad mirrored.
                     if (d > 0.01f && dir.y > -0.1f) {
-                        float u = dir.dot(tangent) / d;
-                        float v = dir.z / d;
-                        if (Math.abs(u) < SUN_QUAD_HALF && Math.abs(v) < SUN_QUAD_HALF) {
-                            int tx = Math.min(sunTexture.width() - 1, (int) ((u / SUN_QUAD_HALF * 0.5f + 0.5f) * sunTexture.width()));
-                            int ty = Math.min(sunTexture.height() - 1, (int) ((v / SUN_QUAD_HALF * 0.5f + 0.5f) * sunTexture.height()));
-                            int texel = sunTexture.rgb()[ty * sunTexture.width() + tx];
+                        float et = dir.dot(tangent) / d;
+                        float ez = dir.z / d;
+                        if (Math.abs(et) < SUN_QUAD_HALF && Math.abs(ez) < SUN_QUAD_HALF) {
+                            int texel = sunTexture.sample((ez / SUN_QUAD_HALF + 1f) * 0.5f, (1f - et / SUN_QUAD_HALF) * 0.5f);
                             r += (texel >> 16) & 0xFF;
                             g += (texel >> 8) & 0xFF;
                             b += texel & 0xFF;
                         }
-                    } else if (d < -0.01f && dir.y > -0.02f && inQuad(dir, tangent, -d, MOON_HALF)) {
-                        r = 225; g = 228; b = 238;
+                    } else if (d < -0.01f && dir.y > -0.1f) {
+                        if (moonTexture != null) {
+                            float et = dir.dot(tangent) / -d;
+                            float ez = dir.z / -d;
+                            if (Math.abs(et) < MOON_QUAD_HALF && Math.abs(ez) < MOON_QUAD_HALF) {
+                                int texel = moonTexture.sample(1f - (ez / MOON_QUAD_HALF + 1f) * 0.5f, (1f - et / MOON_QUAD_HALF) * 0.5f);
+                                r += (texel >> 16) & 0xFF;
+                                g += (texel >> 8) & 0xFF;
+                                b += texel & 0xFF;
+                            }
+                        } else if (dir.y > -0.02f && inQuad(dir, tangent, -d, MOON_HALF)) {
+                            r = 225; g = 228; b = 238;
+                        }
                     }
                 } else if (d > GLOW_COS) {
                     float glow = SkyColors.glow((float) Math.toDegrees(Math.acos(Math.min(1f, d)))) * glowScale;

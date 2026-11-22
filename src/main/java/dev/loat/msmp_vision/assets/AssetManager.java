@@ -92,6 +92,28 @@ public final class AssetManager {
     }
 
     /**
+     * Finds a texture by the end of its path, for resources that were moved between versions.
+     *
+     * @param suffix Path suffix, ex. {@code /celestial/sun.png}.
+     * @return The path relative to the asset root, or {@code null} if no file matches.
+     */
+    public String find(String suffix) {
+        Path textures = this.root.resolve("assets/minecraft/textures");
+        if (!Files.isDirectory(textures)) {
+            return null;
+        }
+        try (java.util.stream.Stream<Path> files = Files.walk(textures)) {
+            return files.filter(Files::isRegularFile)
+                .map(file -> this.root.relativize(file).toString().replace('\\', '/'))
+                .filter(path -> path.endsWith(suffix))
+                .findFirst()
+                .orElse(null);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /**
      * Reads and parses a JSON file below the asset root.
      *
      * @param path Relative path.

@@ -50,7 +50,8 @@ public final class SectionMesher {
     private final float[] sideUv = new float[8];
     private final boolean smoothLighting;
     private final VertexLighting lighting;
-    private final float[] brightness = new float[4];
+    private final float[] brightness = new float[12];
+    private final float[] rgb = new float[3];
     private final int[] vertexColors = new int[4];
     private int debugTint = 0xFFFFFF;
 
@@ -64,7 +65,7 @@ public final class SectionMesher {
      * @param camera Camera providing the coordinate origin.
      * @param biomeBlend Biome blend radius.
      * @param smoothLighting Whether to blend light and darken corners (ambient occlusion) per vertex.
-     * @param brightness Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
+     * @param brightness Brightness option like in Minecraft's video settings: 0 = Moody, 1 = 100 %.
      */
     public SectionMesher(WorldSnapshot world, BlockModelBaker baker, TextureStore textures, TintResolver tint, Camera camera, int biomeBlend, boolean smoothLighting, float brightness) {
         this.world = world;
@@ -158,12 +159,12 @@ public final class SectionMesher {
             if (this.smoothLighting && VertexLighting.isFullFace(quad.positions(), axis, sign)) {
                 int rotate = this.lighting.compute(x, y, z, axis, sign, quad.positions(), shade, this.brightness);
                 for (int i = 0; i < 4; i++) {
-                    this.vertexColors[i] = pack(this.brightness[i], tintRgb);
+                    this.vertexColors[i] = packRgb(this.brightness, i * 3, 1.0f, tintRgb);
                 }
                 target.add(quad.positions(), offsetX, offsetY, offsetZ, quad.uvs(), quad.texture(), this.vertexColors, rotate);
             } else {
-                float light = this.light(x, y, z, face, solid);
-                target.add(quad.positions(), offsetX, offsetY, offsetZ, quad.uvs(), quad.texture(), pack(shade * light, tintRgb));
+                this.light(x, y, z, face, solid, this.rgb);
+                target.add(quad.positions(), offsetX, offsetY, offsetZ, quad.uvs(), quad.texture(), packRgb(this.rgb, 0, shade, tintRgb));
             }
         }
     }
@@ -174,7 +175,10 @@ public final class SectionMesher {
         TextureData flow = this.textures.get(water ? "minecraft:block/water_flow" : "minecraft:block/lava_flow");
         QuadBuffer target = water ? translucent : opaque;
         int tintRgb = multiply(water ? this.tint.waterTint(this.world, x, y, z, this.blend) : 0xFFFFFF, this.debugTint);
-        float light = water ? this.fluidLight(x, y, z) : 1.0f;
+        float[] light = {1.0f, 1.0f, 1.0f};
+        if (water) {
+            this.fluidLight(x, y, z, light);
+        }
 
         FluidState above = this.world.blockState(x, y + 1, z).getFluidState();
         boolean covered = !above.isEmpty() && above.getType().isSame(fluid.getType());
@@ -185,7 +189,7 @@ public final class SectionMesher {
 
         if (!covered) {
             FaceGeometry.fill(this.scratch, Direction.UP, 0, 0, 0, 1, height, 1);
-            target.add(this.scratch, rx, ry, rz, FLUID_UV_TOP, still.id(), pack(light * FACE_SHADE[Direction.UP.ordinal()], tintRgb));
+            target.add(this.scratch, rx, ry, rz, FLUID_UV_TOP, still.id(), packRgb(light, 0, FACE_SHADE[Direction.UP.ordinal()], tintRgb));
         }
         for (Direction side : Direction.Plane.HORIZONTAL) {
             BlockState neighbour = this.world.blockState(x + side.getStepX(), y, z + side.getStepZ());
@@ -199,24 +203,23 @@ public final class SectionMesher {
             this.sideUv[4] = 0.5f; this.sideUv[5] = 0.5f;
             this.sideUv[6] = 0.5f; this.sideUv[7] = v0;
             FaceGeometry.fill(this.scratch, side, 0, 0, 0, 1, height, 1);
-            float sideLight = light;
-            target.add(this.scratch, rx, ry, rz, this.sideUv, flow.id(), pack(sideLight * FACE_SHADE[side.ordinal()], tintRgb));
+            target.add(this.scratch, rx, ry, rz, this.sideUv, flow.id(), packRgb(light, 0, FACE_SHADE[side.ordinal()], tintRgb));
         }
     }
 
     /** Light of a face: sampled at the neighbour for solid blocks, at the block itself otherwise. */
-    private float light(int x, int y, int z, Direction face, boolean solid) {
+    private void light(int x, int y, int z, Direction face, boolean solid, float[] out) {
         int lx = solid ? x + face.getStepX() : x;
         int ly = solid ? y + face.getStepY() : y;
         int lz = solid ? z + face.getStepZ() : z;
-        return this.lighting.brightness(this.world.skyLight(lx, ly, lz), this.world.blockLight(lx, ly, lz));
+        this.lighting.color(this.world.skyLight(lx, ly, lz), this.world.blockLight(lx, ly, lz), out, 0);
     }
 
     /** Fluids use the brighter of their own light and the light of the block above, for every face. */
-    private float fluidLight(int x, int y, int z) {
+    private void fluidLight(int x, int y, int z, float[] out) {
         float sky = Math.max(this.world.skyLight(x, y, z), this.world.skyLight(x, y + 1, z));
         float block = Math.max(this.world.blockLight(x, y, z), this.world.blockLight(x, y + 1, z));
-        return this.lighting.brightness(sky, block);
+        this.lighting.color(sky, block, out, 0);
     }
 
     /** Adapts the captured world to the Minecraft-free {@link VertexLighting}; remembers the last looked-up block. */
@@ -269,6 +272,13 @@ public final class SectionMesher {
         int g = ((a >> 8) & 0xFF) * ((b >> 8) & 0xFF) / 255;
         int bl = (a & 0xFF) * (b & 0xFF) / 255;
         return (r << 16) | (g << 8) | bl;
+    }
+
+    private static int packRgb(float[] light, int offset, float shade, int tintRgb) {
+        int r = clamp(shade * light[offset] * ((tintRgb >> 16) & 0xFF));
+        int g = clamp(shade * light[offset + 1] * ((tintRgb >> 8) & 0xFF));
+        int b = clamp(shade * light[offset + 2] * (tintRgb & 0xFF));
+        return (r << 16) | (g << 8) | b;
     }
 
     private static int pack(float brightness, int tintRgb) {

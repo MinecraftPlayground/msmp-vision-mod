@@ -60,13 +60,14 @@ public final class VertexLighting {
     private final int[] sideU = new int[3];
     private final int[] sideV = new int[3];
     private final int[] corner = new int[3];
+    private final float[] scratch = new float[3];
 
     /**
      * Creates a calculator.
      *
      * @param samples The world.
      * @param skyLightFactor Sky light multiplier, 0 (night) to 1 (day).
-     * @param gamma Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
+     * @param gamma Brightness option like in Minecraft's video settings: 0 = Moody, 1 = 100 %.
      */
     public VertexLighting(Samples samples, float skyLightFactor, float gamma) {
         this.samples = samples;
@@ -103,7 +104,7 @@ public final class VertexLighting {
      * @param sign Direction along the axis (+1 or -1).
      * @param pos 4 vertices x 3 floats, block-local.
      * @param directionalShade Constant per-face shade (1.0 up, 0.5 down, ...), 1.0 if the quad is unshaded.
-     * @param out Receives 4 brightness values (0..1), without biome tint.
+     * @param out Receives 4 colours as 12 floats (r, g, b per vertex, 0..1), without biome tint.
      * @return {@code 1} if the quad should be rotated by one vertex so that its diagonal follows the darker
      * vertex pair (avoids visible artefacts), otherwise {@code 0}.
      */
@@ -156,26 +157,62 @@ public final class VertexLighting {
             float shade = (centerShade + shadeU + shadeV + shadeC) * 0.25f;
             float sky = (centerSky + skyU + skyV + skyC) * 0.25f;
             float block = (centerBlock + blockU + blockV + blockC) * 0.25f;
-            out[i] = directionalShade * shade * this.brightness(sky, block);
+            this.color(sky, block, this.scratch, 0);
+            float factor = directionalShade * shade;
+            out[i * 3] = factor * this.scratch[0];
+            out[i * 3 + 1] = factor * this.scratch[1];
+            out[i * 3 + 2] = factor * this.scratch[2];
         }
-        return out[0] + out[2] > out[1] + out[3] ? 1 : 0;
+        float v0 = out[0] + out[1] + out[2];
+        float v1 = out[3] + out[4] + out[5];
+        float v2 = out[6] + out[7] + out[8];
+        float v3 = out[9] + out[10] + out[11];
+        return v0 + v2 > v1 + v3 ? 1 : 0;
     }
 
     /**
-     * Brightness for a light level, like Minecraft's lightmap: the light curve is blended towards
-     * {@code 1 - (1 - x)^4} by the brightness option, and a constant ambient term is mixed in.
+     * Colour of the light, like Minecraft's lightmap: block light is warm (red stays, green and blue fall off faster at
+     * low levels), sky light is added in white, then a little ambient grey is mixed in and the brightness option blends
+     * the result towards {@code 1 - (1 - x)^4}.
      *
      * @param sky Sky light 0-15.
      * @param block Block light 0-15.
-     * @return Brightness 0.03 .. 0.99.
+     * @param out Receives r, g, b (0..1) at {@code offset}.
+     * @param offset First index in {@code out}.
+     */
+    public void color(float sky, float block, float[] out, int offset) {
+        float b = curve(block / 15f);
+        float s = curve(sky / 15f) * this.skyLightFactor;
+        float r = b + s;
+        float g = b * ((b * 0.6f + 0.4f) * 0.6f + 0.4f) + s;
+        float bl = b * (b * b * 0.6f + 0.4f) + s;
+        out[offset] = this.finish(r);
+        out[offset + 1] = this.finish(g);
+        out[offset + 2] = this.finish(bl);
+    }
+
+    /**
+     * Grey brightness of a light level (the mean of {@link #color}), for callers that need a single value.
+     *
+     * @param sky Sky light 0-15.
+     * @param block Block light 0-15.
+     * @return Brightness 0..1.
      */
     public float brightness(float sky, float block) {
-        float level = Math.max(sky / 15f * this.skyLightFactor, block / 15f);
-        float curved = level / (4f - 3f * level);
-        float inverse = 1f - curved;
+        this.color(sky, block, this.scratch, 0);
+        return (this.scratch[0] + this.scratch[1] + this.scratch[2]) / 3f;
+    }
+
+    private static float curve(float level) {
+        return level / (4f - 3f * level);
+    }
+
+    private float finish(float value) {
+        float clamped = Math.max(0f, Math.min(1f, value));
+        float ambient = clamped * 0.96f + 0.03f;
+        float inverse = 1f - ambient;
         float bright = 1f - inverse * inverse * inverse * inverse;
-        float value = curved + (bright - curved) * this.gamma;
-        return value * 0.96f + 0.03f;
+        return ambient + (bright - ambient) * this.gamma;
     }
 
     private float shade(int[] p) {

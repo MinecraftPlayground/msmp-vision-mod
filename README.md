@@ -52,9 +52,9 @@ defaults:
   # Biome tint blend radius in blocks (0 = off).
   # @default: 1
   biome-blend: 1
-  # Brightness like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
+  # Brightness like in Minecraft's video settings: as the percentage in the video settings (0 = Moody, 1 = 100 %).
   # @default: 0.5
-  brightness: 0.5
+  brightness: 1.0
   # Mipmap levels like in Minecraft's video settings (0 = off, max 4). Smooths and stabilises distant textures.
   # @default: 4
   mipmap-levels: 4
@@ -149,7 +149,7 @@ Vectors are transferred as arrays, exactly like in the `entity` namespace.
 | `render_distance` | int           | no       | Render distance in chunks (1 chunk = 16 blocks), like in Minecraft's video settings. Default from config |
 | `ssaa`            | int           | no       | Supersampling factor, `1` = off. Default from config                               |
 | `biome_blend`     | int           | no       | Biome tint blend radius in blocks, `0` = off. Default from config                  |
-| `brightness`      | number        | no       | Brightness like in Minecraft's video settings, `0` = Moody, `0.5` = default, `1` = Bright. Default from config |
+| `brightness`      | number        | no       | Brightness like in Minecraft's video settings, `0` = Moody, `1` = 100 %. Default from config |
 | `mipmap_levels`   | int           | no       | Mipmap levels like in Minecraft's video settings, `0` = off, max `4`. Default from config |
 
 > **`fov` is the effective vertical field of view.** Minecraft multiplies the FOV option by 1.1 while the player is flying, so a client with FOV 100 that is flying renders like `fov: 110` here. Stand on the ground (or set *FOV Effects* to 0) when comparing with a client screenshot.

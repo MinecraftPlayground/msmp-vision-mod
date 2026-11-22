@@ -37,7 +37,7 @@ public final class SceneRenderer {
     private final RenderExecutor executor;
     private final BlockModelBaker baker;
     private final CloudMask cloudMask;
-    private final SunTexture sunTexture;
+    private final CelestialTextures celestial;
     private final TintResolver tint = new TintResolver();
 
     /**
@@ -52,7 +52,7 @@ public final class SceneRenderer {
         this.executor = executor;
         this.baker = new BlockModelBaker(new BlockStateSelector(assets), new ModelResolver(assets), textures);
         this.cloudMask = new CloudMask(assets);
-        this.sunTexture = new SunTexture(assets);
+        this.celestial = new CelestialTextures(assets);
     }
 
     /**
@@ -95,7 +95,8 @@ public final class SceneRenderer {
 
         Framebuffer framebuffer = new Framebuffer(width, height);
         long skyStart = System.nanoTime();
-        SkyPainter.paint(framebuffer, camera, world.environment(), this.executor, timeout, this.sunTexture.get());
+        SkyPainter.paint(framebuffer, camera, world.environment(), this.executor, timeout,
+            this.celestial.sun(), this.celestial.moon(world.environment().moonPhase()));
         long skyDone = System.nanoTime();
 
         float fogEnd = settings.renderDistanceBlocks();
