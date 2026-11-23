@@ -205,8 +205,11 @@ public final class VertexLighting {
      */
     public void color(float sky, float block, float[] out, int offset) {
         float curved = curve(block / 15f);
-        // The lift was measured at levels 5-8; it fades in over the first levels so faint light does not jump.
-        float b = curved + (1f - curved) * this.blockAmbient * Math.min(1f, block / 4f);
+        // The lift was measured at levels 5-8. Below that, client screenshots of dark caves show no lift, so it fades in
+        // (quadratically) between level 1 (none) and level 5 (full).
+        float ramp = Math.max(0f, Math.min(1f, (block - 1f) / 4f));
+        float lift = ramp * ramp;
+        float b = curved + (1f - curved) * this.blockAmbient * lift;
         float s = curve(sky / 15f) * this.skyLightFactor;
         out[offset] = this.finish(b * this.tintR + s * this.skyR + this.ambientR);
         out[offset + 1] = this.finish(b * this.tintG + s * this.skyG + this.ambientG);
