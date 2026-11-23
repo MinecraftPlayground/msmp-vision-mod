@@ -21,6 +21,12 @@ public final class TileRasterizer {
     /** Opaque-pass pixels with less alpha are discarded, like the cutout shader of Minecraft (alpha below 0.1). */
     private static final int CUTOUT_ALPHA = 26;
 
+    /**
+     * Fragments that are not farther than this share of the stored depth pass, so a quad that lies exactly in the plane
+     * of another one (the overlay of a grass block side) is drawn over it, like with the client's less-or-equal depth test.
+     */
+    private static final float DEPTH_TOLERANCE = 0.99999f;
+
     private final RenderExecutor executor;
     private final int tileSize;
     private final long timeoutSeconds;
@@ -216,7 +222,7 @@ public final class TileRasterizer {
                 }
                 int idx = y * width + x;
                 float invW = (float) (w0 * aw + w1 * bw + w2 * cw);
-                if (invW <= depth[idx]) {
+                if (invW < depth[idx] * DEPTH_TOLERANCE) {
                     continue;
                 }
                 if (prepass != null) {

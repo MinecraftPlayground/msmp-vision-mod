@@ -31,7 +31,7 @@ public class RenderConfig {
         Measured on client screenshots of caves, see the environment attributes logged for each screenshot.
     """)
     @Annotation.Key("block-light-ambient")
-    public double blockLightAmbient = 0.2;
+    public double blockLightAmbient = 0.18;
 
     @Annotation.Comment("Skip back-facing triangles. Disable only for debugging.")
     @Annotation.Key("backface-culling")

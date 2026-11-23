@@ -51,6 +51,34 @@ public final class EnvironmentLog {
         return joiner.toString();
     }
 
+    /**
+     * Reads a colour attribute by name.
+     *
+     * @param level The level.
+     * @param name Name of the field in {@link EnvironmentAttributes}, ex. {@code BLOCK_LIGHT_TINT}.
+     * @param position The camera position.
+     * @param fallback Value used if the attribute does not exist or is not a colour, as {@code 0xRRGGBB}.
+     * @return The colour as {@code 0xRRGGBB}.
+     */
+    public static int color(ServerLevel level, String name, Vec3 position, int fallback) {
+        try {
+            Object attributes = level.environmentAttributes();
+            Object attribute = EnvironmentAttributes.class.getField(name).get(null);
+            for (Method method : attributes.getClass().getMethods()) {
+                if (method.getName().equals("getValue") && method.getParameterCount() == 2
+                    && method.getParameterTypes()[1].isAssignableFrom(Vec3.class)) {
+                    if (method.invoke(attributes, attribute, position) instanceof Integer color) {
+                        return color & 0xFFFFFF;
+                    }
+                    break;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // use the fallback
+        }
+        return fallback;
+    }
+
     private static String biome(ServerLevel level, Vec3 position) {
         try {
             Object holder = level.getBiome(net.minecraft.core.BlockPos.containing(position));

@@ -63,10 +63,15 @@ public final class VertexLighting {
     private final float[] scratch = new float[3];
     private final float blockAmbient;
 
-    /** Tint of block light, measured on client screenshots (the old level dependent formula did not match). */
-    private static final float TINT_R = 1.0f;
-    private static final float TINT_G = 0.85f;
-    private static final float TINT_B = 0.55f;
+    private float tintR = 1.0f;
+    private float tintG = 0.85f;
+    private float tintB = 0.55f;
+    private float skyR = 1.0f;
+    private float skyG = 1.0f;
+    private float skyB = 1.0f;
+    private float ambientR = 0.039f;
+    private float ambientG = 0.039f;
+    private float ambientB = 0.039f;
 
     /**
      * Creates a calculator.
@@ -190,8 +195,8 @@ public final class VertexLighting {
     }
 
     /**
-     * Colour of the light, like Minecraft's lightmap: block light is a warm tint, sky light is added in white, then a
-     * little ambient grey is mixed in and the brightness option blends the result towards {@code 1 - (1 - x)^4}.
+     * Colour of the light, like Minecraft's lightmap: block light times its tint plus sky light times its colour plus the
+     * ambient colour, then the brightness option blends the result towards {@code 1 - (1 - x)^4}.
      *
      * @param sky Sky light 0-15.
      * @param block Block light 0-15.
@@ -203,9 +208,31 @@ public final class VertexLighting {
         // The lift was measured at levels 5-8; it fades in over the first levels so faint light does not jump.
         float b = curved + (1f - curved) * this.blockAmbient * Math.min(1f, block / 4f);
         float s = curve(sky / 15f) * this.skyLightFactor;
-        out[offset] = this.finish(b * TINT_R + s);
-        out[offset + 1] = this.finish(b * TINT_G + s);
-        out[offset + 2] = this.finish(b * TINT_B + s);
+        out[offset] = this.finish(b * this.tintR + s * this.skyR + this.ambientR);
+        out[offset + 1] = this.finish(b * this.tintG + s * this.skyG + this.ambientG);
+        out[offset + 2] = this.finish(b * this.tintB + s * this.skyB + this.ambientB);
+    }
+
+    /**
+     * Sets the light colours of the environment (the {@code BLOCK_LIGHT_TINT}, {@code SKY_LIGHT_COLOR} and
+     * {@code AMBIENT_LIGHT_COLOR} attributes).
+     *
+     * @param blockTint Tint of block light as {@code 0xRRGGBB}.
+     * @param skyColor Colour of sky light as {@code 0xRRGGBB}.
+     * @param ambient Ambient light added everywhere as {@code 0xRRGGBB}.
+     * @return this
+     */
+    public VertexLighting colors(int blockTint, int skyColor, int ambient) {
+        this.tintR = ((blockTint >> 16) & 0xFF) / 255f;
+        this.tintG = ((blockTint >> 8) & 0xFF) / 255f;
+        this.tintB = (blockTint & 0xFF) / 255f;
+        this.skyR = ((skyColor >> 16) & 0xFF) / 255f;
+        this.skyG = ((skyColor >> 8) & 0xFF) / 255f;
+        this.skyB = (skyColor & 0xFF) / 255f;
+        this.ambientR = ((ambient >> 16) & 0xFF) / 255f;
+        this.ambientG = ((ambient >> 8) & 0xFF) / 255f;
+        this.ambientB = (ambient & 0xFF) / 255f;
+        return this;
     }
 
     /**
@@ -226,10 +253,9 @@ public final class VertexLighting {
 
     private float finish(float value) {
         float clamped = Math.max(0f, Math.min(1f, value));
-        float ambient = clamped * 0.96f + 0.03f;
-        float inverse = 1f - ambient;
+        float inverse = 1f - clamped;
         float bright = 1f - inverse * inverse * inverse * inverse;
-        return ambient + (bright - ambient) * this.gamma;
+        return clamped + (bright - clamped) * this.gamma;
     }
 
     private float shade(int[] p) {

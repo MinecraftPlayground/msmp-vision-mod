@@ -79,7 +79,8 @@ public final class SectionMesher {
         this.originZ = camera.originZ();
         this.blend = biomeBlend;
         this.smoothLighting = smoothLighting;
-        this.lighting = new VertexLighting(new WorldSamples(world), this.environment.skyLightFactor(), brightness, blockLightAmbient);
+        this.lighting = new VertexLighting(new WorldSamples(world), this.environment.skyLightFactor(), brightness, blockLightAmbient)
+            .colors(this.environment.blockLightTint(), this.environment.skyLightColor(), this.environment.ambientLightColor());
     }
 
     /**

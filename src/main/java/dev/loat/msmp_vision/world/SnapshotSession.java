@@ -92,7 +92,10 @@ public final class SnapshotSession {
             level.dimensionType().hasSkyLight(),
             level.getGameTime(),
             level.dimension() == Level.OVERWORLD,
-            MoonPhases.resolve(level, position)
+            MoonPhases.resolve(level, position),
+            EnvironmentLog.color(level, "BLOCK_LIGHT_TINT", position, 0xFFD88C),
+            EnvironmentLog.color(level, "SKY_LIGHT_COLOR", position, 0xFFFFFF),
+            EnvironmentLog.color(level, "AMBIENT_LIGHT_COLOR", position, 0x0A0A0A)
         );
         this.snapshot = new WorldSnapshot(this.environment);
         Logger.info("Environment at the camera: " + EnvironmentLog.describe(level, position));
