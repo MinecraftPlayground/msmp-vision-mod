@@ -33,6 +33,13 @@ public class RenderConfig {
     @Annotation.Key("block-light-ambient")
     public double blockLightAmbient = 0.18;
 
+    @Annotation.Comment("""
+        Adds Minecraft's environmental fog (a faint haze that grows with the distance, read from the environment
+        attributes of the dimension) and measures the render distance fog cylindrically like the client does.
+    """)
+    @Annotation.Key("environmental-fog")
+    public boolean environmentalFog = true;
+
     @Annotation.Comment("Skip back-facing triangles. Disable only for debugging.")
     @Annotation.Key("backface-culling")
     public boolean backfaceCulling = true;

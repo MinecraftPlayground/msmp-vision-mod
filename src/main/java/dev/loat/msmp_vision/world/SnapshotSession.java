@@ -95,7 +95,9 @@ public final class SnapshotSession {
             MoonPhases.resolve(level, position),
             EnvironmentLog.color(level, "BLOCK_LIGHT_TINT", position, 0xFFD88C),
             EnvironmentLog.color(level, "SKY_LIGHT_COLOR", position, 0xFFFFFF),
-            EnvironmentLog.color(level, "AMBIENT_LIGHT_COLOR", position, 0x0A0A0A)
+            EnvironmentLog.color(level, "AMBIENT_LIGHT_COLOR", position, 0x0A0A0A),
+            EnvironmentLog.number(level, "FOG_START_DISTANCE", position, 0f),
+            EnvironmentLog.number(level, "FOG_END_DISTANCE", position, 1024f)
         );
         this.snapshot = new WorldSnapshot(this.environment);
         Logger.info("Environment at the camera: " + EnvironmentLog.describe(level, position));

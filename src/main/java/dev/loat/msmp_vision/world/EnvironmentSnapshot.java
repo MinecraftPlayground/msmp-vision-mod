@@ -14,6 +14,8 @@ package dev.loat.msmp_vision.world;
  * @param blockLightTint Tint of block light as {@code 0xRRGGBB}.
  * @param skyLightColor Colour of sky light as {@code 0xRRGGBB}.
  * @param ambientLightColor Ambient light added everywhere as {@code 0xRRGGBB}.
+ * @param environmentFogStart Distance in blocks where the environmental fog begins.
+ * @param environmentFogEnd Distance in blocks of full environmental fog.
  */
 public record EnvironmentSnapshot(
     double sunAngleRadians,
@@ -26,7 +28,9 @@ public record EnvironmentSnapshot(
     String moonPhase,
     int blockLightTint,
     int skyLightColor,
-    int ambientLightColor
+    int ambientLightColor,
+    float environmentFogStart,
+    float environmentFogEnd
 ) {
 
     /**
@@ -71,5 +75,26 @@ public record EnvironmentSnapshot(
      */
     public EnvironmentSnapshot(double sunAngleRadians, float skyLightFactor, int fogColor, int skyColor, boolean hasSkyLight, long gameTime, boolean clouds, String moonPhase) {
         this(sunAngleRadians, skyLightFactor, fogColor, skyColor, hasSkyLight, gameTime, clouds, moonPhase, 0xFFD88C, 0xFFFFFF, 0x0A0A0A);
+    }
+
+    /**
+     * Creates a snapshot with the overworld environmental fog.
+     *
+     * @param sunAngleRadians Sun angle in radians (0 = zenith).
+     * @param skyLightFactor Sky light multiplier, 0 (night) to 1 (day).
+     * @param fogColor Fog colour as {@code 0xRRGGBB}.
+     * @param skyColor Sky colour as {@code 0xRRGGBB}.
+     * @param hasSkyLight Whether the dimension has sky light.
+     * @param gameTime Game time in ticks.
+     * @param clouds Whether the dimension has clouds.
+     * @param moonPhase Name of the moon phase texture.
+     * @param blockLightTint Tint of block light.
+     * @param skyLightColor Colour of sky light.
+     * @param ambientLightColor Ambient light colour.
+     */
+    public EnvironmentSnapshot(double sunAngleRadians, float skyLightFactor, int fogColor, int skyColor, boolean hasSkyLight, long gameTime, boolean clouds,
+                               String moonPhase, int blockLightTint, int skyLightColor, int ambientLightColor) {
+        this(sunAngleRadians, skyLightFactor, fogColor, skyColor, hasSkyLight, gameTime, clouds, moonPhase,
+            blockLightTint, skyLightColor, ambientLightColor, 0f, 1024f);
     }
 }

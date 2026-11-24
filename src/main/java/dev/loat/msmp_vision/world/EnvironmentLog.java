@@ -79,6 +79,34 @@ public final class EnvironmentLog {
         return fallback;
     }
 
+    /**
+     * Reads a numeric attribute by name.
+     *
+     * @param level The level.
+     * @param name Name of the field in {@link EnvironmentAttributes}, ex. {@code FOG_END_DISTANCE}.
+     * @param position The camera position.
+     * @param fallback Value used if the attribute does not exist or is not a number.
+     * @return The value.
+     */
+    public static float number(ServerLevel level, String name, Vec3 position, float fallback) {
+        try {
+            Object attributes = level.environmentAttributes();
+            Object attribute = EnvironmentAttributes.class.getField(name).get(null);
+            for (Method method : attributes.getClass().getMethods()) {
+                if (method.getName().equals("getValue") && method.getParameterCount() == 2
+                    && method.getParameterTypes()[1].isAssignableFrom(Vec3.class)) {
+                    if (method.invoke(attributes, attribute, position) instanceof Number number) {
+                        return number.floatValue();
+                    }
+                    break;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // use the fallback
+        }
+        return fallback;
+    }
+
     private static String biome(ServerLevel level, Vec3 position) {
         try {
             Object holder = level.getBiome(net.minecraft.core.BlockPos.containing(position));

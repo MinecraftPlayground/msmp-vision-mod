@@ -102,6 +102,12 @@ public final class SceneRenderer {
         float fogEnd = settings.renderDistanceBlocks();
         Fog fog = Fog.of((float) (fogEnd * config.render.fogStartFactor), fogEnd, world.environment().fogColor(),
             camera.tanHalfFov(), camera.aspect(), width, height);
+        if (config.render.environmentalFog) {
+            fog = fog.withEnvironment(world.environment().environmentFogStart(), world.environment().environmentFogEnd(),
+                new float[]{camera.forward().x, camera.forward().y, camera.forward().z},
+                new float[]{camera.right().x, camera.right().y, camera.right().z},
+                new float[]{camera.up().x, camera.up().y, camera.up().z});
+        }
         TriangleBuffer clouds = this.cloudTriangles(world.environment(), camera, settings, config, width, height, cull);
         float cloudEnd = (float) config.clouds.distance;
         Fog cloudFog = Fog.of(cloudEnd * 0.4f, cloudEnd, world.environment().fogColor(),
