@@ -80,6 +80,34 @@ public final class EnvironmentLog {
     }
 
     /**
+     * Reads a colour attribute by name, keeping the alpha.
+     *
+     * @param level The level.
+     * @param name Name of the field in {@link EnvironmentAttributes}, ex. {@code CLOUD_COLOR}.
+     * @param position The camera position.
+     * @param fallback Value used if the attribute does not exist or is not a colour, as {@code 0xAARRGGBB}.
+     * @return The colour as {@code 0xAARRGGBB}.
+     */
+    public static int argb(ServerLevel level, String name, Vec3 position, int fallback) {
+        try {
+            Object attributes = level.environmentAttributes();
+            Object attribute = EnvironmentAttributes.class.getField(name).get(null);
+            for (Method method : attributes.getClass().getMethods()) {
+                if (method.getName().equals("getValue") && method.getParameterCount() == 2
+                    && method.getParameterTypes()[1].isAssignableFrom(Vec3.class)) {
+                    if (method.invoke(attributes, attribute, position) instanceof Integer color) {
+                        return color;
+                    }
+                    break;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // use the fallback
+        }
+        return fallback;
+    }
+
+    /**
      * Reads a numeric attribute by name.
      *
      * @param level The level.

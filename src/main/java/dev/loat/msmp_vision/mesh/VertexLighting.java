@@ -61,7 +61,9 @@ public final class VertexLighting {
     private final int[] sideV = new int[3];
     private final int[] corner = new int[3];
     private final float[] scratch = new float[3];
-    private final float blockAmbient;
+    private final float blockFactor;
+    private boolean perChannelGamma = true;
+    private float[] table;
 
     private float tintR = 1.0f;
     private float tintG = 0.85f;
@@ -81,7 +83,7 @@ public final class VertexLighting {
      * @param gamma Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
      */
     public VertexLighting(Samples samples, float skyLightFactor, float gamma) {
-        this(samples, skyLightFactor, gamma, 0f);
+        this(samples, skyLightFactor, gamma, 1.5f);
     }
 
     /**
@@ -90,13 +92,13 @@ public final class VertexLighting {
      * @param samples The world.
      * @param skyLightFactor Sky light multiplier, 0 (night) to 1 (day).
      * @param gamma Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
-     * @param blockAmbient How far block light levels above 0 are lifted towards full brightness, 0..1 (empirical).
+     * @param blockFactor Factor on block light, vanilla uses 1.5 (plus a small flicker).
      */
-    public VertexLighting(Samples samples, float skyLightFactor, float gamma, float blockAmbient) {
+    public VertexLighting(Samples samples, float skyLightFactor, float gamma, float blockFactor) {
         this.samples = samples;
         this.skyLightFactor = skyLightFactor;
         this.gamma = Math.max(0f, Math.min(1f, gamma));
-        this.blockAmbient = Math.max(0f, Math.min(1f, blockAmbient));
+        this.blockFactor = Math.max(0f, blockFactor);
     }
 
     /**
@@ -204,16 +206,73 @@ public final class VertexLighting {
      * @param offset First index in {@code out}.
      */
     public void color(float sky, float block, float[] out, int offset) {
-        float curved = curve(block / 15f);
-        // The lift was measured at levels 5-8. Below that, client screenshots of dark caves show no lift, so it fades in
-        // (quadratically) between level 1 (none) and level 5 (full).
-        float ramp = Math.max(0f, Math.min(1f, (block - 1f) / 4f));
-        float lift = ramp * ramp;
-        float b = curved + (1f - curved) * this.blockAmbient * lift;
-        float s = curve(sky / 15f) * this.skyLightFactor;
-        out[offset] = this.finish(b * this.tintR + s * this.skyR + this.ambientR);
-        out[offset + 1] = this.finish(b * this.tintG + s * this.skyG + this.ambientG);
-        out[offset + 2] = this.finish(b * this.tintB + s * this.skyB + this.ambientB);
+        float[] t = this.table;
+        if (t == null) {
+            t = this.table = this.buildTable();
+        }
+        float bl = Math.max(0f, Math.min(15f, block));
+        float sl = Math.max(0f, Math.min(15f, sky));
+        int b0 = (int) bl;
+        int s0 = (int) sl;
+        int b1 = Math.min(15, b0 + 1);
+        int s1 = Math.min(15, s0 + 1);
+        float fb = bl - b0;
+        float fs = sl - s0;
+        for (int c = 0; c < 3; c++) {
+            float v00 = t[(b0 * 16 + s0) * 3 + c];
+            float v01 = t[(b0 * 16 + s1) * 3 + c];
+            float v10 = t[(b1 * 16 + s0) * 3 + c];
+            float v11 = t[(b1 * 16 + s1) * 3 + c];
+            float low = v00 + (v01 - v00) * fs;
+            float high = v10 + (v11 - v10) * fs;
+            out[offset + c] = low + (high - low) * fb;
+        }
+    }
+
+    /**
+     * The 16x16 lightmap, calculated like Minecraft's {@code lightmap.fsh}. Minecraft looks it up per vertex with
+     * linear filtering, so fractional light levels (from smooth lighting) interpolate between the entries.
+     */
+    private float[] buildTable() {
+        float[] t = new float[16 * 16 * 3];
+        float[] tint = {this.tintR, this.tintG, this.tintB};
+        float[] skyColor = {this.skyR, this.skyG, this.skyB};
+        float[] ambient = {this.ambientR, this.ambientG, this.ambientB};
+        for (int block = 0; block < 16; block++) {
+            for (int sky = 0; sky < 16; sky++) {
+                float blockLevel = block / 15f;
+                float skyLevel = sky / 15f;
+                float blockBrightness = curve(blockLevel) * this.blockFactor;
+                float skyBrightness = curve(skyLevel) * this.skyLightFactor;
+                float parabola = (2f * blockLevel - 1f) * (2f * blockLevel - 1f);
+                float[] color = new float[3];
+                for (int c = 0; c < 3; c++) {
+                    float blockColor = tint[c] + (1f - tint[c]) * 0.9f * parabola;
+                    color[c] = Math.max(0f, Math.min(1f, ambient[c] + skyColor[c] * skyBrightness + blockColor * blockBrightness));
+                }
+                float max = Math.max(color[0], Math.max(color[1], color[2]));
+                float scale = max <= 0f ? 1f : (1f - (1f - max) * (1f - max) * (1f - max) * (1f - max)) / max;
+                for (int c = 0; c < 3; c++) {
+                    float inverse = 1f - color[c];
+                    float notGamma = this.perChannelGamma ? 1f - inverse * inverse * inverse * inverse : color[c] * scale;
+                    t[(block * 16 + sky) * 3 + c] = color[c] + (notGamma - color[c]) * this.gamma;
+                }
+            }
+        }
+        return t;
+    }
+
+    /**
+     * Chooses how the brightness option bends the colour: per channel (what client screenshots match best so far) or
+     * scaled by the largest channel, which keeps the hue (what {@code lightmap.fsh} says).
+     *
+     * @param perChannel {@code true} for per channel.
+     * @return this
+     */
+    public VertexLighting perChannelGamma(boolean perChannel) {
+        this.perChannelGamma = perChannel;
+        this.table = null;
+        return this;
     }
 
     /**
@@ -235,6 +294,7 @@ public final class VertexLighting {
         this.ambientR = ((ambient >> 16) & 0xFF) / 255f;
         this.ambientG = ((ambient >> 8) & 0xFF) / 255f;
         this.ambientB = (ambient & 0xFF) / 255f;
+        this.table = null;
         return this;
     }
 
@@ -252,13 +312,6 @@ public final class VertexLighting {
 
     private static float curve(float level) {
         return level / (4f - 3f * level);
-    }
-
-    private float finish(float value) {
-        float clamped = Math.max(0f, Math.min(1f, value));
-        float inverse = 1f - clamped;
-        float bright = 1f - inverse * inverse * inverse * inverse;
-        return clamped + (bright - clamped) * this.gamma;
     }
 
     private float shade(int[] p) {

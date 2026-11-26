@@ -97,7 +97,9 @@ public final class SnapshotSession {
             EnvironmentLog.color(level, "SKY_LIGHT_COLOR", position, 0xFFFFFF),
             EnvironmentLog.color(level, "AMBIENT_LIGHT_COLOR", position, 0x0A0A0A),
             EnvironmentLog.number(level, "FOG_START_DISTANCE", position, 0f),
-            EnvironmentLog.number(level, "FOG_END_DISTANCE", position, 1024f)
+            EnvironmentLog.number(level, "FOG_END_DISTANCE", position, 1024f),
+            EnvironmentLog.argb(level, "CLOUD_COLOR", position, 0xCCFFFFFF),
+            EnvironmentLog.number(level, "CLOUD_FOG_END_DISTANCE", position, 2048f)
         );
         this.snapshot = new WorldSnapshot(this.environment);
         Logger.info("Environment at the camera: " + EnvironmentLog.describe(level, position));

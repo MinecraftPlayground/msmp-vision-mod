@@ -66,9 +66,10 @@ public final class SectionMesher {
      * @param biomeBlend Biome blend radius.
      * @param smoothLighting Whether to blend light and darken corners (ambient occlusion) per vertex.
      * @param brightness Brightness option like in Minecraft's video settings: 0 = Moody, 0.5 = default, 1 = Bright.
-     * @param blockLightAmbient Empirical lift of block light, see {@code render.block-light-ambient}.
+     * @param blockLightFactor Factor on block light, see {@code render.block-light-factor}.
+     * @param perChannelGamma Whether the brightness option bends each colour channel on its own.
      */
-    public SectionMesher(WorldSnapshot world, BlockModelBaker baker, TextureStore textures, TintResolver tint, Camera camera, int biomeBlend, boolean smoothLighting, float brightness, float blockLightAmbient) {
+    public SectionMesher(WorldSnapshot world, BlockModelBaker baker, TextureStore textures, TintResolver tint, Camera camera, int biomeBlend, boolean smoothLighting, float brightness, float blockLightFactor, boolean perChannelGamma) {
         this.world = world;
         this.environment = world.environment();
         this.baker = baker;
@@ -79,8 +80,9 @@ public final class SectionMesher {
         this.originZ = camera.originZ();
         this.blend = biomeBlend;
         this.smoothLighting = smoothLighting;
-        this.lighting = new VertexLighting(new WorldSamples(world), this.environment.skyLightFactor(), brightness, blockLightAmbient)
-            .colors(this.environment.blockLightTint(), this.environment.skyLightColor(), this.environment.ambientLightColor());
+        this.lighting = new VertexLighting(new WorldSamples(world), this.environment.skyLightFactor(), brightness, blockLightFactor)
+            .colors(this.environment.blockLightTint(), this.environment.skyLightColor(), this.environment.ambientLightColor())
+            .perChannelGamma(perChannelGamma);
     }
 
     /**

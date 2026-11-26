@@ -260,9 +260,22 @@ public final class TileRasterizer {
                 float lg = (float) (w0 * ag + w1 * bg + w2 * cg) * w;
                 float lb = (float) (w0 * ab + w1 * bb + w2 * cb) * w;
                 float f = fog.factor(x, y, w);
-                int r = Math.min(255, (int) (((texel >> 16) & 0xFF) * lr * f + fog.r() * (1f - f)));
-                int g = Math.min(255, (int) (((texel >> 8) & 0xFF) * lg * f + fog.g() * (1f - f)));
-                int b = Math.min(255, (int) ((texel & 0xFF) * lb * f + fog.b() * (1f - f)));
+                int r;
+                int g;
+                int b;
+                if (fog.alphaFade()) {
+                    r = Math.min(255, (int) (((texel >> 16) & 0xFF) * lr));
+                    g = Math.min(255, (int) (((texel >> 8) & 0xFF) * lg));
+                    b = Math.min(255, (int) ((texel & 0xFF) * lb));
+                    alpha = (int) (alpha * f);
+                    if (alpha <= 0) {
+                        continue;
+                    }
+                } else {
+                    r = Math.min(255, (int) (((texel >> 16) & 0xFF) * lr * f + fog.r() * (1f - f)));
+                    g = Math.min(255, (int) (((texel >> 8) & 0xFF) * lg * f + fog.g() * (1f - f)));
+                    b = Math.min(255, (int) ((texel & 0xFF) * lb * f + fog.b() * (1f - f)));
+                }
 
                 if (!translucentPass || alpha == 255) {
                     color[idx] = 0xFF000000 | (r << 16) | (g << 8) | b;

@@ -77,7 +77,7 @@ public final class SceneRenderer {
                 continue;
             }
             jobs.add(CompletableFuture.supplyAsync(() -> {
-                SectionGeometry geometry = new SectionMesher(world, this.baker, this.textures, this.tint, camera, settings.biomeBlend(), config.render.smoothLighting, (float) settings.brightness(), (float) config.render.blockLightAmbient).mesh(section);
+                SectionGeometry geometry = new SectionMesher(world, this.baker, this.textures, this.tint, camera, settings.biomeBlend(), config.render.smoothLighting, (float) settings.brightness(), (float) config.render.blockLightFactor, config.render.lightGammaPerChannel).mesh(section);
                 GeometryProjector projector = new GeometryProjector(camera.viewProjection(), width, height, cull);
                 return new Projected(projector.project(geometry.opaque()), projector.project(geometry.translucent()));
             }, this.executor.executor()));
@@ -109,9 +109,9 @@ public final class SceneRenderer {
                 new float[]{camera.up().x, camera.up().y, camera.up().z});
         }
         TriangleBuffer clouds = this.cloudTriangles(world.environment(), camera, settings, config, width, height, cull);
-        float cloudEnd = (float) config.clouds.distance;
-        Fog cloudFog = Fog.of(cloudEnd * 0.4f, cloudEnd, world.environment().fogColor(),
-            camera.tanHalfFov(), camera.aspect(), width, height);
+        // The clouds fade out with the distance (alpha from the cloud colour at the camera to 0 at the cloud fog end).
+        Fog cloudFog = Fog.of(0f, world.environment().cloudFogEnd(), world.environment().fogColor(),
+            camera.tanHalfFov(), camera.aspect(), width, height).asAlpha();
         new TileRasterizer(this.executor, config.render.tileSize, timeout, settings.mipmapLevels())
             .rasterize(TriangleBuffer.merge(opaque), TriangleBuffer.merge(translucent), clouds, framebuffer, this.texturesById(), fog, cloudFog);
         long tilesDone = System.nanoTime();
@@ -130,9 +130,10 @@ public final class SceneRenderer {
         if (mask == null) {
             return new TriangleBuffer();
         }
-        int alpha = (int) Math.round(255.0 * Math.max(0.0, Math.min(1.0, config.clouds.opacity)));
+        int alpha = environment.cloudColor() >>> 24;
         TextureData texture = this.textures.solid("cloud-" + alpha, (alpha << 24) | 0xFFFFFF);
-        float brightness = 0.9f * environment.skyLightFactor() + 0.1f;
+        int cloudRgb = environment.cloudColor();
+        float brightness = (((cloudRgb >> 16) & 0xFF) + ((cloudRgb >> 8) & 0xFF) + (cloudRgb & 0xFF)) / (3f * 255f);
         QuadBuffer quads = new QuadBuffer();
         CloudGeometry.build(quads, texture.id(), mask.cells(), mask.width(), mask.height(),
             settings.position().get(0), settings.position().get(1), settings.position().get(2),

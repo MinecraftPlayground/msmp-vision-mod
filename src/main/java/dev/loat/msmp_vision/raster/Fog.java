@@ -26,9 +26,11 @@ public final class Fog {
     private final float environmentStart;
     private final float environmentEnd;
     private final float[] basis;
+    private final boolean alphaFade;
 
     private Fog(float start, float end, int r, int g, int b, float tanX, float tanY, int width, int height,
-                boolean environmental, float environmentStart, float environmentEnd, float[] basis) {
+                boolean environmental, float environmentStart, float environmentEnd, float[] basis, boolean alphaFade) {
+        this.alphaFade = alphaFade;
         this.environmental = environmental;
         this.environmentStart = environmentStart;
         this.environmentEnd = environmentEnd;
@@ -59,7 +61,7 @@ public final class Fog {
      * @return The fog.
      */
     public static Fog of(float start, float end, int rgb, float tanHalfFov, float aspect, int width, int height) {
-        return new Fog(start, end, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, tanHalfFov * aspect, tanHalfFov, width, height, false, 0f, 0f, null);
+        return new Fog(start, end, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, tanHalfFov * aspect, tanHalfFov, width, height, false, 0f, 0f, null, false);
     }
 
     /**
@@ -75,8 +77,23 @@ public final class Fog {
     public Fog withEnvironment(float environmentStart, float environmentEnd, float[] forward, float[] right, float[] up) {
         float[] basis = {forward[0], forward[1], forward[2], right[0], right[1], right[2], up[0], up[1], up[2]};
         return new Fog(this.start, this.end, this.r, this.g, this.b, this.tanX, this.tanY,
-            Math.round(2f / this.pixelToNdcX), Math.round(2f / this.pixelToNdcY), true, environmentStart, environmentEnd, basis);
+            Math.round(2f / this.pixelToNdcX), Math.round(2f / this.pixelToNdcY), true, environmentStart, environmentEnd, basis, false);
     }
+
+    /**
+     * Returns a copy that fades the fragment out instead of blending it towards the fog colour. Minecraft does this for
+     * the clouds: their alpha shrinks linearly from 1 at the camera to 0 at the end distance.
+     *
+     * @return The new fog.
+     */
+    public Fog asAlpha() {
+        return new Fog(this.start, this.end, this.r, this.g, this.b, this.tanX, this.tanY,
+            Math.round(2f / this.pixelToNdcX), Math.round(2f / this.pixelToNdcY), this.environmental,
+            this.environmentStart, this.environmentEnd, this.basis, true);
+    }
+
+    /** @return {@code true} if the fog fades the alpha instead of blending towards the fog colour. */
+    public boolean alphaFade() { return this.alphaFade; }
 
     /** @return Fog red. */
     public int r() { return this.r; }

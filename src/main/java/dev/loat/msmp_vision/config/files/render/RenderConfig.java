@@ -27,11 +27,17 @@ public class RenderConfig {
     public boolean smoothLighting = true;
 
     @Annotation.Comment("""
-        Empirical: how much brighter block light is than the plain light curve (0 = off, 1 = full bright).
-        Measured on client screenshots of caves, see the environment attributes logged for each screenshot.
+        Factor on block light. Minecraft uses 1.5 plus a small flicker (the BlockFactor of its lightmap shader).
     """)
-    @Annotation.Key("block-light-ambient")
-    public double blockLightAmbient = 0.18;
+    @Annotation.Key("block-light-factor")
+    public double blockLightFactor = 1.5;
+
+    @Annotation.Comment("""
+        How the brightness option bends the light colour. true: per colour channel (matches client screenshots best so far),
+        false: scaled by the largest channel like the lightmap shader reads, which keeps the hue.
+    """)
+    @Annotation.Key("light-gamma-per-channel")
+    public boolean lightGammaPerChannel = true;
 
     @Annotation.Comment("""
         Adds Minecraft's environmental fog (a faint haze that grows with the distance, read from the environment
